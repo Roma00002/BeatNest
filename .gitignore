@@ -1,0 +1,82 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Distribution / packaging
+dist/
+build/
+*.egg-info/
+
+# Virtual environment
+venv/
+ENV/
+.env
+.venv
+env/
+.Python
+pip-log.txt
+pip-delete-this-directory.txt
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+.project
+.pydevproject
+.settings/
+*.sublime-workspace
+*.sublime-project
+
+# Project specific
+*.mid
+*.midi
+checkpoints/
+logs/
+.env
+*.h5
+*.hdf5
+*.pkl
+*.npz
+*.npy
+model_weights/
+trained_models/
+*.ckpt
+*.pth
+
+# Audio files
+*.wav
+*.mp3
+*.ogg
+*.flac
+
+# Large media files
+*.mp4
+*.mov
+*.avi
+*.mkv
+
+# System
+.DS_Store
+Thumbs.db
+*.log
+*.tmp
+*.temp
+.*.swp
+*~
+
+# Jupyter Notebook
+.ipynb_checkpoints
+*.ipynb
+
+# Coverage reports
+htmlcov/
+.tox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover 
