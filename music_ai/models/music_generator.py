@@ -72,12 +72,21 @@ class MusicGenerator(tf.keras.Model):
         
         # Ensure float32 type
         initial_sequence = tf.cast(initial_sequence, tf.float32)
+        
+        # Ensure sequence has correct length (64 timesteps)
+        if initial_sequence.shape[2] > 64:
+            initial_sequence = initial_sequence[:, :, :64]
+        elif initial_sequence.shape[2] < 64:
+            padding = tf.zeros([initial_sequence.shape[0], initial_sequence.shape[1], 64 - initial_sequence.shape[2]], dtype=tf.float32)
+            initial_sequence = tf.concat([initial_sequence, padding], axis=2)
+        
         generated = initial_sequence
         
         # Generate one step at a time
         for _ in range(sequence_length):
-            # Predict next step
-            next_step = self(generated, training=False)
+            # Predict next step using last 64 timesteps
+            input_sequence = generated[:, :, -64:]
+            next_step = self(input_sequence, training=False)
             
             # Take last timestep prediction and ensure float32
             next_step = tf.cast(next_step[:, :, -1:], tf.float32)
