@@ -66,10 +66,12 @@ class MusicGenerator(tf.keras.Model):
     
     def generate(self, initial_sequence: tf.Tensor, sequence_length: int) -> tf.Tensor:
         """Generate a new sequence of specified length."""
-        # Ensure initial sequence has correct shape
+        # Ensure initial sequence has correct shape and type
         if len(initial_sequence.shape) == 2:
             initial_sequence = tf.expand_dims(initial_sequence, 0)
         
+        # Ensure float32 type
+        initial_sequence = tf.cast(initial_sequence, tf.float32)
         generated = initial_sequence
         
         # Generate one step at a time
@@ -77,13 +79,13 @@ class MusicGenerator(tf.keras.Model):
             # Predict next step
             next_step = self(generated, training=False)
             
-            # Take last timestep prediction
-            next_step = next_step[:, :, -1:]
+            # Take last timestep prediction and ensure float32
+            next_step = tf.cast(next_step[:, :, -1:], tf.float32)
             
             # Concatenate with generated sequence
             generated = tf.concat([generated, next_step], axis=2)
             
-        return generated 
+        return generated
 
     def build_model(self, input_shape: Tuple[int, int]) -> tf.keras.Model:
         """Build and compile the model."""
