@@ -18,9 +18,11 @@ def find_and_move_midi_files():
     
     # Common locations to look for MIDI files
     search_paths = [
+        'midi_files',           # Current midi_files directory
         '.',                    # Current directory
         '..',                   # Parent directory
         '/content',             # Colab root directory
+        '/content/BeatNest/midi_files',  # Project midi_files directory
         '/content/sample_data'  # Colab sample data directory
     ]
     
@@ -30,33 +32,48 @@ def find_and_move_midi_files():
     for path in search_paths:
         if os.path.exists(path):
             # Search for both .mid and .midi files
-            midi_pattern = os.path.join(path, '*.mid*')
-            midi_files_found.extend(glob.glob(midi_pattern))
+            for pattern in ['*.mid', '*.midi']:
+                midi_pattern = os.path.join(path, pattern)
+                midi_files_found.extend(glob.glob(midi_pattern))
     
     if not midi_files_found:
         print("\n❌ No se encontraron archivos MIDI en ninguna ubicación común.")
-        print("\nPor favor, sigue estos pasos:")
-        print("1. En el panel izquierdo de Colab, haz clic en el icono de carpeta 📁")
-        print("2. Sube tus archivos MIDI (terminan en .mid o .midi)")
-        print("3. Vuelve a ejecutar este script")
+        print("\nPor favor, verifica:")
+        print(f"1. Que los archivos estén en: {os.path.abspath('midi_files')}")
+        print("2. Que los archivos terminen en .mid o .midi")
+        print("3. Que tengas permisos de lectura en los archivos")
+        print("\nUbicaciones buscadas:")
+        for path in search_paths:
+            if os.path.exists(path):
+                print(f"  ✓ {os.path.abspath(path)}")
+            else:
+                print(f"  ✗ {path} (no existe)")
         return False
     
     # Move all found MIDI files to midi_files directory
+    files_moved = 0
     for file_path in midi_files_found:
         file_name = os.path.basename(file_path)
         destination = os.path.join('midi_files', file_name)
-        if file_path != destination:  # Only copy if not already in midi_files
-            shutil.copy2(file_path, destination)
-            print(f"✓ Movido: {file_name}")
+        if os.path.abspath(file_path) != os.path.abspath(destination):
+            try:
+                shutil.copy2(file_path, destination)
+                print(f"✓ Copiado: {file_name}")
+                files_moved += 1
+            except Exception as e:
+                print(f"✗ Error al copiar {file_name}: {str(e)}")
+    
+    if files_moved == 0 and len(midi_files_found) > 0:
+        print("\n✓ Los archivos MIDI ya están en la ubicación correcta")
     
     return True
 
 def main():
     """Main function for training in Colab."""
     print("🎵 Iniciando entrenamiento de BeatNest...")
-    print("\nBuscando archivos MIDI...")
+    print("\nVerificando archivos MIDI...")
     
-    # Verificar y mover archivos MIDI
+    # Verificar y mover archivos MIDI si es necesario
     if not find_and_move_midi_files():
         return
     
@@ -84,6 +101,9 @@ def main():
         batch_size=32,                   # Tamaño del batch
         epochs=100                       # Número de épocas
     )
+    
+    # Crear directorio para checkpoints
+    os.makedirs(args.checkpoint_dir, exist_ok=True)
     
     # Iniciar entrenamiento
     try:
