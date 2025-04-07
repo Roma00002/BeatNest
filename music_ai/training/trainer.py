@@ -1,6 +1,6 @@
 import tensorflow as tf
 import numpy as np
-from typing import Tuple, Optional
+from typing import Tuple, Optional, Dict
 from tqdm import tqdm
 import os
 
@@ -19,17 +19,26 @@ class MusicTrainer:
         # Create checkpoint directory if it doesn't exist
         if not os.path.exists(checkpoint_dir):
             os.makedirs(checkpoint_dir)
+            print(f"✓ Creado directorio de checkpoints: {os.path.abspath(checkpoint_dir)}")
         
         # Initialize checkpoint manager
         self.checkpoint = tf.train.Checkpoint(
             optimizer=self.optimizer,
-            model=self.model
+            model=self.model,
+            epoch=tf.Variable(0)
         )
         self.checkpoint_manager = tf.train.CheckpointManager(
             self.checkpoint,
             self.checkpoint_dir,
             max_to_keep=3
         )
+        
+        # Load existing checkpoint if available
+        if self.checkpoint_manager.latest_checkpoint:
+            self.checkpoint.restore(self.checkpoint_manager.latest_checkpoint)
+            print(f"✓ Restaurado checkpoint: {self.checkpoint_manager.latest_checkpoint}")
+        else:
+            print("✓ Iniciando entrenamiento desde cero")
 
     def prepare_batch(self, x: np.ndarray, y: np.ndarray, batch_size: int) -> Tuple[tf.Tensor, tf.Tensor]:
         """Prepara un batch asegurando dimensiones consistentes."""
@@ -68,16 +77,25 @@ class MusicTrainer:
         validation_data: Tuple[np.ndarray, np.ndarray],
         batch_size: int = 32,
         epochs: int = 1
-    ) -> float:
+    ) -> Dict[str, list]:
         """Entrena el modelo por un número específico de épocas."""
         X_train, y_train = train_data
         X_val, y_val = validation_data
+        
+        print(f"\nIniciando entrenamiento con {X_train.shape[0]} muestras")
+        print(f"Forma de los datos: {X_train.shape}")
         
         # Preparar datos de entrenamiento
         X_train, y_train = self.prepare_batch(X_train, y_train, batch_size)
         
         # Preparar datos de validación
         X_val, y_val = self.prepare_batch(X_val, y_val, batch_size)
+        
+        # Historiales de pérdida
+        history = {
+            'train_loss': [],
+            'val_loss': []
+        }
         
         # Entrenar por el número especificado de épocas
         for epoch in range(epochs):
@@ -88,15 +106,35 @@ class MusicTrainer:
             val_predictions = self.model(X_val, training=False)
             val_loss = self.loss_fn(y_val, val_predictions)
             
+            # Actualizar historiales
+            history['train_loss'].append(float(train_loss))
+            history['val_loss'].append(float(val_loss))
+            
+            # Actualizar época actual
+            self.checkpoint.epoch.assign(epoch + 1)
+            
             # Guardar checkpoint
-            self.checkpoint_manager.save()
+            save_path = self.checkpoint_manager.save()
+            
+            # Mostrar progreso
+            print(f"Época {epoch + 1}/{epochs}")
+            print(f"  - Pérdida entrenamiento: {float(train_loss):.4f}")
+            print(f"  - Pérdida validación: {float(val_loss):.4f}")
+            print(f"  - Checkpoint guardado en: {save_path}")
         
-        return train_loss.numpy()
+        # Verificar checkpoints al final del entrenamiento
+        checkpoints = [f for f in os.listdir(self.checkpoint_dir) if f.startswith('ckpt-')]
+        print(f"\n✓ Total de checkpoints guardados: {len(checkpoints)}")
+        for ckpt in checkpoints:
+            print(f"  - {ckpt}")
+        
+        return history
 
     def load_latest_checkpoint(self) -> bool:
         """Load the latest checkpoint if available."""
         if self.checkpoint_manager.latest_checkpoint:
             self.checkpoint.restore(self.checkpoint_manager.latest_checkpoint)
-            print(f"Restored from checkpoint: {self.checkpoint_manager.latest_checkpoint}")
+            print(f"✓ Restaurado checkpoint: {self.checkpoint_manager.latest_checkpoint}")
+            print(f"  - Época actual: {int(self.checkpoint.epoch)}")
             return True
         return False 
