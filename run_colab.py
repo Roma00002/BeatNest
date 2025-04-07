@@ -1,8 +1,14 @@
 #!/usr/bin/env python3
 import os
+import sys
 import gradio as gr
 import numpy as np
 import tensorflow as tf
+
+# Añadir el directorio raíz al path
+current_dir = os.path.dirname(os.path.abspath(__file__))
+sys.path.append(current_dir)
+
 from music_ai.data.preprocessor import MusicPreprocessor
 from music_ai.models.music_generator import MusicGenerator as Model
 from music_ai.generation.generator import MusicGenerator
@@ -25,31 +31,11 @@ def print_training_instructions():
    
    # Instalar dependencias
    !pip install -r requirements.txt
-   
-   # Crear directorios necesarios
-   !mkdir -p checkpoints generated midi_files
    ```
 
-3. Para entrenar el modelo, ejecuta:
+3. Para entrenar el modelo, simplemente ejecuta:
    ```python
-   from music_ai.main import train
-   import argparse
-   
-   args = argparse.Namespace(
-       data_dir='midi_files',           # Directorio con tus archivos MIDI
-       checkpoint_dir='checkpoints',     # Directorio para guardar el modelo
-       sample_rate=44100,               # Tasa de muestreo
-       hop_length=512,                  # Longitud de salto
-       n_mels=128,                      # Número de bandas mel
-       sequence_length=64,              # Longitud de secuencia
-       units=256,                       # Unidades LSTM
-       num_layers=3,                    # Capas LSTM
-       learning_rate=0.001,             # Tasa de aprendizaje
-       batch_size=32,                   # Tamaño de batch
-       epochs=100                       # Épocas de entrenamiento
-   )
-   
-   train(args)
+   !python train_colab.py
    ```
 
 4. Una vez entrenado, puedes iniciar la interfaz web:
