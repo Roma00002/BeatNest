@@ -91,10 +91,16 @@ class MusicGenerator:
         if seed_path is not None:
             # Load and process seed file
             seed = self.preprocessor.midi_to_spectrogram(seed_path)
+            # Ensure seed has correct sequence length
+            if seed.shape[1] > sequence_length:
+                seed = seed[:, :sequence_length]
+            elif seed.shape[1] < sequence_length:
+                padding = np.zeros((seed.shape[0], sequence_length - seed.shape[1]))
+                seed = np.concatenate([seed, padding], axis=1)
             seed = np.expand_dims(seed, 0)  # Add batch dimension
         else:
-            # Create random seed
-            seed = np.random.uniform(0, 1, (1, self.model.input_shape[0], 64))
+            # Create random seed with correct sequence length
+            seed = np.random.uniform(0, 1, (1, self.model.input_shape[0], sequence_length))
 
         # Generate sequence
         generated_sequence = self.generate_sequence(
