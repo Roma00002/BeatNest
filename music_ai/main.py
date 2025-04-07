@@ -1,9 +1,9 @@
 import argparse
 import os
-from data.preprocessor import MusicPreprocessor
-from models.music_generator import MusicGenerator as Model
-from training.trainer import MusicTrainer
-from generation.generator import MusicGenerator
+from music_ai.data.preprocessor import MusicPreprocessor
+from music_ai.models.music_generator import MusicGenerator as Model
+from music_ai.training.trainer import MusicTrainer
+from music_ai.generation.generator import MusicGenerator
 import tensorflow as tf
 import numpy as np
 
