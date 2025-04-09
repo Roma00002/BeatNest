@@ -1,24 +1,41 @@
 #!/usr/bin/env python3
 import os
 import sys
+import argparse
 from music_ai.training.trainer import MusicTrainer
 from music_ai.data.preprocessor import MusicPreprocessor
+from music_ai.data.genres import get_genre_path, create_genre_directories, get_genre_name
 
-def setup_environment():
-    """Setup the environment for training."""
+def setup_environment(genre_path: str):
+    """Setup the environment for training a specific genre."""
+    # Create genre directories
+    create_genre_directories()
+    
+    # Get full genre path
+    genre_dir = get_genre_path(genre_path)
+    if not genre_dir:
+        print(f"❌ Género no válido: {genre_path}")
+        print("Usa el formato: genero/subgenero o genero/subgenero/subsubgenero")
+        sys.exit(1)
+    
     # Create necessary directories
-    os.makedirs('mp3_files', exist_ok=True)
-    os.makedirs('checkpoints', exist_ok=True)
-    print("✓ Directorios creados:")
-    print(f"  - mp3_files: {os.path.abspath('mp3_files')}")
-    print(f"  - checkpoints: {os.path.abspath('checkpoints')}")
+    os.makedirs(os.path.join(genre_dir, 'audio'), exist_ok=True)
+    os.makedirs(os.path.join(genre_dir, 'models'), exist_ok=True)
+    
+    print(f"✓ Entrenando para el género: {get_genre_name(genre_path)}")
+    print(f"✓ Directorios creados:")
+    print(f"  - Audio: {os.path.abspath(os.path.join(genre_dir, 'audio'))}")
+    print(f"  - Modelos: {os.path.abspath(os.path.join(genre_dir, 'models'))}")
+    
+    return genre_dir
 
-def find_audio_files():
-    """Find audio files in the project directory."""
+def find_audio_files(genre_dir: str):
+    """Find audio files in the genre directory."""
+    audio_dir = os.path.join(genre_dir, 'audio')
     search_paths = [
-        'mp3_files',  # Local directory
-        '/content/BeatNest/mp3_files',  # Google Colab path
-        '/content/mp3_files'  # Alternative Colab path
+        audio_dir,  # Genre-specific directory
+        os.path.join('/content/BeatNest', audio_dir),  # Google Colab path
+        os.path.join('/content', audio_dir)  # Alternative Colab path
     ]
     
     audio_files = []
@@ -37,27 +54,36 @@ def find_audio_files():
             print(f"- {path}")
         print("\nSi estás en Google Colab, puedes subir los archivos usando:")
         print("1. El botón de 'Upload' en el panel izquierdo")
-        print("2. O usando el comando: !cp /content/drive/MyDrive/tus_archivos/*.mp3 mp3_files/")
+        print("2. O usando el comando: !cp /content/drive/MyDrive/tus_archivos/*.mp3 " + audio_dir)
         return None
     
     return audio_files
 
 def main():
+    # Parse command line arguments
+    parser = argparse.ArgumentParser(description='Entrenar modelo para un género específico')
+    parser.add_argument('genre_path', help='Ruta del género (ej: hiphop_rap/trap/hood_trap)')
+    parser.add_argument('--epochs', type=int, default=100, help='Número de épocas de entrenamiento')
+    parser.add_argument('--batch-size', type=int, default=32, help='Tamaño del batch')
+    parser.add_argument('--sequence-length', type=int, default=64, help='Longitud de la secuencia')
+    parser.add_argument('--n-mels', type=int, default=128, help='Número de bandas mel')
+    args = parser.parse_args()
+    
     # Setup environment
-    setup_environment()
+    genre_dir = setup_environment(args.genre_path)
     
     # Find audio files
-    audio_files = find_audio_files()
+    audio_files = find_audio_files(genre_dir)
     if not audio_files:
         sys.exit(1)
     
-    # Initialize preprocessor with default parameters
-    preprocessor = MusicPreprocessor(n_mels=128)
+    # Initialize preprocessor
+    preprocessor = MusicPreprocessor(n_mels=args.n_mels)
     
     try:
         # Load and preprocess dataset
         print("\nCargando y preprocesando archivos de audio...")
-        X, y = preprocessor.load_dataset('mp3_files', sequence_length=64)
+        X, y = preprocessor.load_dataset(os.path.join(genre_dir, 'audio'), sequence_length=args.sequence_length)
         
         # Print dataset information
         print(f"\nDataset cargado exitosamente:")
@@ -65,9 +91,9 @@ def main():
         print(f"- Forma de objetivo: {y.shape}")
         print(f"- Número de muestras: {X.shape[0]}")
         
-        # Initialize trainer with default parameters
+        # Initialize trainer
         trainer = MusicTrainer(
-            input_shape=(128, 64),  # n_mels, sequence_length
+            input_shape=(args.n_mels, args.sequence_length),
             units=256,
             num_layers=3,
             dropout_rate=0.3
@@ -77,14 +103,19 @@ def main():
         print("\nIniciando entrenamiento...")
         history = trainer.train(
             X, y,
-            epochs=100,
-            batch_size=32,
+            epochs=args.epochs,
+            batch_size=args.batch_size,
             validation_split=0.2
         )
+        
+        # Save model to genre-specific directory
+        model_path = os.path.join(genre_dir, 'models', 'model.h5')
+        trainer.model.save(model_path)
         
         print("\nEntrenamiento completado exitosamente!")
         print(f"Pérdida final de entrenamiento: {history['train_loss'][-1]:.4f}")
         print(f"Pérdida final de validación: {history['val_loss'][-1]:.4f}")
+        print(f"Modelo guardado en: {model_path}")
         
     except Exception as e:
         print(f"\nError durante el entrenamiento: {str(e)}")
