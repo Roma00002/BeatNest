@@ -257,10 +257,10 @@ def main():
             print(f"\nError durante el entrenamiento: {str(e)}")
             sys.exit(1)
     
-    else:  # generate mode
-        # Launch Gradio interface
-        interface = create_gradio_interface()
-        interface.launch(share=True)
+    # Always launch Gradio interface
+    print("\nIniciando interfaz de generación de beats...")
+    interface = create_gradio_interface()
+    interface.launch(share=True)
 
 if __name__ == '__main__':
     main() 
