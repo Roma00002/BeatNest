@@ -4,6 +4,9 @@ import sys
 import glob
 import shutil
 import argparse
+from music_ai.training.trainer import MusicTrainer
+from music_ai.data.preprocessor import MusicPreprocessor
+import tensorflow as tf
 
 # Añadir el directorio raíz al path
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -68,61 +71,91 @@ def find_and_move_midi_files():
     
     return True
 
-def main():
-    """Main function for training in Colab."""
-    print("🎵 Iniciando entrenamiento de BeatNest...")
-    print("\nVerificando archivos MIDI...")
-    
-    # Verificar y mover archivos MIDI si es necesario
-    if not find_and_move_midi_files():
-        return
-    
-    # Verificar que hay archivos MIDI en la carpeta correcta
-    midi_files = [f for f in os.listdir('midi_files') if f.endswith(('.mid', '.midi'))]
-    if not midi_files:
-        print("❌ Error: No se encontraron archivos MIDI en la carpeta 'midi_files'")
-        return
-    
-    print(f"\n✅ Encontrados {len(midi_files)} archivos MIDI para entrenamiento:")
-    for file in midi_files:
-        print(f"  - {file}")
-    
-    # Configurar parámetros
-    args = argparse.Namespace(
-        data_dir='midi_files',           # Carpeta donde están tus archivos MIDI
-        checkpoint_dir='checkpoints',     # Carpeta donde se guardará el modelo
-        sample_rate=44100,               # Tasa de muestreo (no cambiar)
-        hop_length=512,                  # Longitud de salto (no cambiar)
-        n_mels=128,                      # Número de bandas mel (no cambiar)
-        sequence_length=64,              # Longitud de secuencia (no cambiar)
-        units=256,                       # Unidades LSTM (no cambiar)
-        num_layers=3,                    # Capas LSTM (no cambiar)
-        learning_rate=0.001,             # Velocidad de aprendizaje
-        batch_size=32,                   # Tamaño del batch
-        epochs=100                       # Número de épocas
-    )
-    
-    # Crear directorio para checkpoints
-    os.makedirs(args.checkpoint_dir, exist_ok=True)
-    
-    # Iniciar entrenamiento
-    try:
-        print("\n🚀 Iniciando entrenamiento...")
-        train(args)
-        print("\n✅ Entrenamiento completado exitosamente")
-        print("\nAhora puedes generar beats usando:")
-        print("!python run_colab.py")
-    except Exception as e:
-        print(f"\n❌ Error durante el entrenamiento: {str(e)}")
-        print("\nPor favor, verifica:")
-        print("1. Que los archivos MIDI sean válidos")
-        print("2. Que tengas suficiente memoria disponible")
-        print("3. Que la GPU esté habilitada en Colab")
-        print("\nPara habilitar la GPU en Colab:")
-        print("1. Ve a 'Entorno de ejecución' en el menú")
-        print("2. Selecciona 'Cambiar tipo de entorno de ejecución'")
-        print("3. Elige 'GPU' en el desplegable")
-        print("4. Haz clic en 'Guardar'")
+def setup_environment():
+    """Setup the environment for training."""
+    # Ensure we're in the correct directory
+    if not os.path.exists('music_ai'):
+        print("Error: music_ai directory not found. Please run this script from the project root.")
+        sys.exit(1)
 
-if __name__ == "__main__":
+    # Create checkpoints directory if it doesn't exist
+    if not os.path.exists('checkpoints'):
+        os.makedirs('checkpoints')
+        print("Created checkpoints directory")
+
+def find_audio_files():
+    """Find audio files in the project directory."""
+    search_paths = [
+        'mp3_files',  # Local directory
+        '/content/BeatNest/mp3_files',  # Google Colab path
+        '/content/mp3_files'  # Alternative Colab path
+    ]
+    
+    for path in search_paths:
+        if os.path.exists(path):
+            print(f"Found audio files directory at: {path}")
+            return path
+    
+    print("Error: Could not find audio files directory.")
+    print("Please ensure your audio files are in one of these locations:")
+    for path in search_paths:
+        print(f"- {path}")
+    print("\nIf using Google Colab, make sure to upload your audio files to the correct directory.")
+    sys.exit(1)
+
+def main():
+    # Parse command line arguments
+    parser = argparse.ArgumentParser(description='Train the music generation model')
+    parser.add_argument('--epochs', type=int, default=100, help='Number of training epochs')
+    parser.add_argument('--batch_size', type=int, default=32, help='Batch size for training')
+    parser.add_argument('--sequence_length', type=int, default=64, help='Length of input sequences')
+    parser.add_argument('--n_mels', type=int, default=128, help='Number of mel bands for spectrogram')
+    args = parser.parse_args()
+
+    # Setup environment
+    setup_environment()
+    
+    # Find audio files
+    audio_dir = find_audio_files()
+    
+    # Initialize preprocessor
+    preprocessor = MusicPreprocessor(n_mels=args.n_mels)
+    
+    try:
+        # Load and preprocess dataset
+        print("Loading and preprocessing audio files...")
+        X, y = preprocessor.load_dataset(audio_dir, sequence_length=args.sequence_length)
+        
+        # Print dataset information
+        print(f"Dataset loaded successfully:")
+        print(f"- Input shape: {X.shape}")
+        print(f"- Target shape: {y.shape}")
+        print(f"- Number of samples: {X.shape[0]}")
+        
+        # Initialize trainer
+        trainer = MusicTrainer(
+            input_shape=(args.n_mels, args.sequence_length),
+            units=256,
+            num_layers=3,
+            dropout_rate=0.3
+        )
+        
+        # Train model
+        print("\nStarting training...")
+        history = trainer.train(
+            X, y,
+            epochs=args.epochs,
+            batch_size=args.batch_size,
+            validation_split=0.2
+        )
+        
+        print("\nTraining completed successfully!")
+        print(f"Final training loss: {history['train_loss'][-1]:.4f}")
+        print(f"Final validation loss: {history['val_loss'][-1]:.4f}")
+        
+    except Exception as e:
+        print(f"Error during training: {str(e)}")
+        sys.exit(1)
+
+if __name__ == '__main__':
     main() 
