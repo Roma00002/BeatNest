@@ -4,7 +4,34 @@ import sys
 import argparse
 from music_ai.training.trainer import MusicTrainer
 from music_ai.data.preprocessor import MusicPreprocessor
-from music_ai.data.genres import get_genre_path, create_genre_directories, get_genre_name
+from music_ai.data.genres import get_genre_path, create_genre_directories, get_genre_name, GENRE_STRUCTURE
+
+def print_genre_structure(structure: dict, level: int = 0):
+    """Print the genre structure in a tree-like format."""
+    for key, value in structure.items():
+        if isinstance(value, dict):
+            if 'name' in value:
+                print("  " * level + f"├─ {value['name']}")
+                if 'subgenres' in value:
+                    print_genre_structure(value['subgenres'], level + 1)
+            else:
+                print("  " * level + f"├─ {key}")
+                print_genre_structure(value, level + 1)
+        else:
+            print("  " * level + f"├─ {value}")
+
+def select_genre() -> str:
+    """Show available genres and let user select one."""
+    print("\nGéneros disponibles:")
+    print("=" * 50)
+    print_genre_structure(GENRE_STRUCTURE)
+    print("=" * 50)
+    
+    while True:
+        genre_path = input("\nIngresa la ruta del género (ej: hiphop_rap/trap/hood_trap): ").strip()
+        if get_genre_path(genre_path):
+            return genre_path
+        print("❌ Género no válido. Por favor, usa el formato correcto.")
 
 def setup_environment(genre_path: str):
     """Setup the environment for training a specific genre."""
@@ -22,7 +49,7 @@ def setup_environment(genre_path: str):
     os.makedirs(os.path.join(genre_dir, 'audio'), exist_ok=True)
     os.makedirs(os.path.join(genre_dir, 'models'), exist_ok=True)
     
-    print(f"✓ Entrenando para el género: {get_genre_name(genre_path)}")
+    print(f"\n✓ Entrenando para el género: {get_genre_name(genre_path)}")
     print(f"✓ Directorios creados:")
     print(f"  - Audio: {os.path.abspath(os.path.join(genre_dir, 'audio'))}")
     print(f"  - Modelos: {os.path.abspath(os.path.join(genre_dir, 'models'))}")
@@ -62,15 +89,17 @@ def find_audio_files(genre_dir: str):
 def main():
     # Parse command line arguments
     parser = argparse.ArgumentParser(description='Entrenar modelo para un género específico')
-    parser.add_argument('genre_path', help='Ruta del género (ej: hiphop_rap/trap/hood_trap)')
     parser.add_argument('--epochs', type=int, default=100, help='Número de épocas de entrenamiento')
     parser.add_argument('--batch-size', type=int, default=32, help='Tamaño del batch')
     parser.add_argument('--sequence-length', type=int, default=64, help='Longitud de la secuencia')
     parser.add_argument('--n-mels', type=int, default=128, help='Número de bandas mel')
     args = parser.parse_args()
     
+    # Select genre
+    genre_path = select_genre()
+    
     # Setup environment
-    genre_dir = setup_environment(args.genre_path)
+    genre_dir = setup_environment(genre_path)
     
     # Find audio files
     audio_files = find_audio_files(genre_dir)
