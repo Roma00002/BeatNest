@@ -73,15 +73,12 @@ def find_and_move_midi_files():
 
 def setup_environment():
     """Setup the environment for training."""
-    # Ensure we're in the correct directory
-    if not os.path.exists('music_ai'):
-        print("Error: music_ai directory not found. Please run this script from the project root.")
-        sys.exit(1)
-
-    # Create checkpoints directory if it doesn't exist
-    if not os.path.exists('checkpoints'):
-        os.makedirs('checkpoints')
-        print("Created checkpoints directory")
+    # Create necessary directories
+    os.makedirs('mp3_files', exist_ok=True)
+    os.makedirs('checkpoints', exist_ok=True)
+    print("✓ Directorios creados:")
+    print(f"  - mp3_files: {os.path.abspath('mp3_files')}")
+    print(f"  - checkpoints: {os.path.abspath('checkpoints')}")
 
 def find_audio_files():
     """Find audio files in the project directory."""
@@ -91,17 +88,25 @@ def find_audio_files():
         '/content/mp3_files'  # Alternative Colab path
     ]
     
+    audio_files = []
     for path in search_paths:
         if os.path.exists(path):
-            print(f"Found audio files directory at: {path}")
-            return path
+            print(f"\nBuscando archivos MP3 en: {path}")
+            for file in glob.glob(os.path.join(path, '*.mp3')):
+                audio_files.append(file)
+                print(f"✓ Encontrado: {file}")
     
-    print("Error: Could not find audio files directory.")
-    print("Please ensure your audio files are in one of these locations:")
-    for path in search_paths:
-        print(f"- {path}")
-    print("\nIf using Google Colab, make sure to upload your audio files to the correct directory.")
-    sys.exit(1)
+    if not audio_files:
+        print("\n❌ No se encontraron archivos MP3.")
+        print("\nPor favor, sube tus archivos MP3 a una de estas ubicaciones:")
+        for path in search_paths:
+            print(f"- {path}")
+        print("\nSi estás en Google Colab, puedes subir los archivos usando:")
+        print("1. El botón de 'Upload' en el panel izquierdo")
+        print("2. O usando el comando: !cp /content/drive/MyDrive/tus_archivos/*.mp3 mp3_files/")
+        return None
+    
+    return audio_files
 
 def main():
     # Parse command line arguments
@@ -116,21 +121,23 @@ def main():
     setup_environment()
     
     # Find audio files
-    audio_dir = find_audio_files()
+    audio_files = find_audio_files()
+    if not audio_files:
+        sys.exit(1)
     
     # Initialize preprocessor
     preprocessor = MusicPreprocessor(n_mels=args.n_mels)
     
     try:
         # Load and preprocess dataset
-        print("Loading and preprocessing audio files...")
-        X, y = preprocessor.load_dataset(audio_dir, sequence_length=args.sequence_length)
+        print("\nCargando y preprocesando archivos de audio...")
+        X, y = preprocessor.load_dataset('mp3_files', sequence_length=args.sequence_length)
         
         # Print dataset information
-        print(f"Dataset loaded successfully:")
-        print(f"- Input shape: {X.shape}")
-        print(f"- Target shape: {y.shape}")
-        print(f"- Number of samples: {X.shape[0]}")
+        print(f"\nDataset cargado exitosamente:")
+        print(f"- Forma de entrada: {X.shape}")
+        print(f"- Forma de objetivo: {y.shape}")
+        print(f"- Número de muestras: {X.shape[0]}")
         
         # Initialize trainer
         trainer = MusicTrainer(
@@ -141,7 +148,7 @@ def main():
         )
         
         # Train model
-        print("\nStarting training...")
+        print("\nIniciando entrenamiento...")
         history = trainer.train(
             X, y,
             epochs=args.epochs,
@@ -149,12 +156,12 @@ def main():
             validation_split=0.2
         )
         
-        print("\nTraining completed successfully!")
-        print(f"Final training loss: {history['train_loss'][-1]:.4f}")
-        print(f"Final validation loss: {history['val_loss'][-1]:.4f}")
+        print("\nEntrenamiento completado exitosamente!")
+        print(f"Pérdida final de entrenamiento: {history['train_loss'][-1]:.4f}")
+        print(f"Pérdida final de validación: {history['val_loss'][-1]:.4f}")
         
     except Exception as e:
-        print(f"Error during training: {str(e)}")
+        print(f"\nError durante el entrenamiento: {str(e)}")
         sys.exit(1)
 
 if __name__ == '__main__':
