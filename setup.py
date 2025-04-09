@@ -5,16 +5,13 @@ setup(
     version="0.1.0",
     packages=find_packages(),
     install_requires=[
-        "tensorflow>=2.13.0",
-        "numpy>=1.24.3",
-        "librosa>=0.10.1",
-        "pretty_midi>=0.2.10",
-        "midiutil>=1.2.1",
-        "gradio>=4.19.2",
-        "scipy>=1.7.0",
-        "matplotlib>=3.4.0",
-        "python-dotenv>=0.19.0",
-        "soundfile>=0.12.1"
+        "numpy>=1.19.2",
+        "tensorflow>=2.4.0",
+        "librosa>=0.8.0",
+        "soundfile>=0.10.3",
+        "PyQt5>=5.15.2",
+        "matplotlib>=3.3.2",
+        "scipy>=1.5.2"
     ],
-    python_requires=">=3.8",
+    python_requires=">=3.7",
 ) 

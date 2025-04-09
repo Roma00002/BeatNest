@@ -70,6 +70,7 @@ Thumbs.db
 # Jupyter Notebook
 .ipynb_checkpoints
 *.ipynb
+!BeatNest.ipynb
 
 # Coverage reports
 htmlcov/

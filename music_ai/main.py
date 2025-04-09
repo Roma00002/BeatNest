@@ -1,131 +1,80 @@
+#!/usr/bin/env python3
 import argparse
 import os
-from .data.preprocessor import MusicPreprocessor
-from .models.music_generator import MusicGenerator as Model
-from .training.trainer import MusicTrainer
-from .generation.generator import MusicGenerator
-import tensorflow as tf
-import numpy as np
+from music_ai.training.trainer import MusicTrainer
+from music_ai.data.preprocessor import MusicPreprocessor
+from music_ai.generation.generator import MusicGenerator
 
 def train(args):
-    """Train the model on MIDI files."""
-    # Initialize preprocessor
-    preprocessor = MusicPreprocessor(
-        sample_rate=args.sample_rate,
-        hop_length=args.hop_length,
-        n_mels=args.n_mels
-    )
-    
-    # Load and preprocess dataset
-    print("Loading and preprocessing MIDI files...")
-    X, y = preprocessor.load_dataset(
-        args.data_dir,
-        sequence_length=args.sequence_length
-    )
-    
-    # Split into train and validation sets
-    split_idx = int(len(X) * 0.9)
-    X_train, X_val = X[:split_idx], X[split_idx:]
-    y_train, y_val = y[:split_idx], y[split_idx:]
-    
-    # Initialize model
-    model = Model(
-        input_shape=(X.shape[1], X.shape[2]),
-        units=args.units,
-        num_layers=args.num_layers
-    )
-    
-    # Initialize trainer
+    """Train the model on audio files."""
+    # Initialize preprocessor and trainer
+    preprocessor = MusicPreprocessor(n_mels=args.n_mels)
     trainer = MusicTrainer(
-        model,
-        learning_rate=args.learning_rate,
-        checkpoint_dir=args.checkpoint_dir
-    )
-    
-    # Train model
-    trainer.train(
-        train_data=(X_train, y_train),
-        validation_data=(X_val, y_val),
-        batch_size=args.batch_size,
-        epochs=args.epochs
-    )
-
-def generate(args):
-    """Generate new beats using the trained model."""
-    # Initialize preprocessor
-    preprocessor = MusicPreprocessor(
-        sample_rate=args.sample_rate,
-        hop_length=args.hop_length,
-        n_mels=args.n_mels
-    )
-    
-    # Initialize model
-    model = Model(
         input_shape=(args.n_mels, args.sequence_length),
         units=args.units,
-        num_layers=args.num_layers
+        num_layers=args.num_layers,
+        dropout_rate=args.dropout_rate
     )
     
-    # Load checkpoint
-    checkpoint = tf.train.Checkpoint(model=model)
-    checkpoint.restore(tf.train.latest_checkpoint(args.checkpoint_dir))
+    print("Loading and preprocessing audio files...")
+    X, y = preprocessor.load_dataset(args.data_dir, sequence_length=args.sequence_length)
     
-    if not checkpoint:
-        raise ValueError("No checkpoint found. Train the model first.")
+    print(f"Dataset shapes - X: {X.shape}, y: {y.shape}")
     
-    # Initialize generator
-    generator = MusicGenerator(
-        model,
-        preprocessor,
-        temperature=args.temperature
+    # Train model
+    history = trainer.train(
+        X, y,
+        epochs=args.epochs,
+        batch_size=args.batch_size,
+        validation_split=0.2
     )
     
-    # Generate beats
+    print(f"Training completed. Final loss: {history['train_loss'][-1]:.4f}")
+
+def generate(args):
+    """Generate new audio using the trained model."""
+    generator = MusicGenerator(model_path=args.model_path)
+    
+    # Generate new audio
     generator.generate_beat(
+        output_path=args.output_path,
         seed_path=args.seed_path,
-        sequence_length=args.sequence_length,
-        output_path=args.output_path
+        length=args.length
     )
+    
+    print(f"Generated audio saved to: {args.output_path}")
 
 def main():
-    parser = argparse.ArgumentParser(description="AI Music Beat Generator")
+    parser = argparse.ArgumentParser(description="Music AI Training and Generation")
     subparsers = parser.add_subparsers(dest="command", help="Command to run")
     
-    # Training arguments
+    # Train command
     train_parser = subparsers.add_parser("train", help="Train the model")
-    train_parser.add_argument("--data-dir", required=True, help="Directory containing MIDI files")
-    train_parser.add_argument("--checkpoint-dir", default="checkpoints", help="Directory to save checkpoints")
-    train_parser.add_argument("--sample-rate", type=int, default=44100, help="Audio sample rate")
-    train_parser.add_argument("--hop-length", type=int, default=512, help="Hop length for spectrogram")
+    train_parser.add_argument("--data-dir", required=True, help="Directory containing audio files")
+    train_parser.add_argument("--epochs", type=int, default=100, help="Number of training epochs")
+    train_parser.add_argument("--batch-size", type=int, default=32, help="Batch size for training")
+    train_parser.add_argument("--sequence-length", type=int, default=64, help="Length of input sequences")
     train_parser.add_argument("--n-mels", type=int, default=128, help="Number of mel bands")
-    train_parser.add_argument("--sequence-length", type=int, default=64, help="Sequence length")
-    train_parser.add_argument("--units", type=int, default=256, help="Number of LSTM units")
+    train_parser.add_argument("--units", type=int, default=256, help="Number of units in LSTM layers")
     train_parser.add_argument("--num-layers", type=int, default=3, help="Number of LSTM layers")
-    train_parser.add_argument("--learning-rate", type=float, default=0.001, help="Learning rate")
-    train_parser.add_argument("--batch-size", type=int, default=32, help="Batch size")
-    train_parser.add_argument("--epochs", type=int, default=100, help="Number of epochs")
+    train_parser.add_argument("--dropout-rate", type=float, default=0.3, help="Dropout rate")
+    train_parser.set_defaults(func=train)
     
-    # Generation arguments
-    gen_parser = subparsers.add_parser("generate", help="Generate new beats")
-    gen_parser.add_argument("--checkpoint-dir", default="checkpoints", help="Directory containing checkpoints")
-    gen_parser.add_argument("--output-path", default="generated/output.mid", help="Output MIDI file path")
-    gen_parser.add_argument("--seed-path", help="Path to seed MIDI file (optional)")
-    gen_parser.add_argument("--temperature", type=float, default=1.0, help="Generation temperature")
-    gen_parser.add_argument("--sample-rate", type=int, default=44100, help="Audio sample rate")
-    gen_parser.add_argument("--hop-length", type=int, default=512, help="Hop length for spectrogram")
-    gen_parser.add_argument("--n-mels", type=int, default=128, help="Number of mel bands")
-    gen_parser.add_argument("--sequence-length", type=int, default=256, help="Length of generated sequence")
-    gen_parser.add_argument("--units", type=int, default=256, help="Number of LSTM units")
-    gen_parser.add_argument("--num-layers", type=int, default=3, help="Number of LSTM layers")
+    # Generate command
+    gen_parser = subparsers.add_parser("generate", help="Generate new audio")
+    gen_parser.add_argument("--model-path", required=True, help="Path to trained model")
+    gen_parser.add_argument("--output-path", default="generated/output.wav", help="Output audio file path")
+    gen_parser.add_argument("--seed-path", help="Path to seed audio file (optional)")
+    gen_parser.add_argument("--length", type=int, default=100, help="Length of sequence to generate")
+    gen_parser.set_defaults(func=generate)
     
     args = parser.parse_args()
     
-    if args.command == "train":
-        train(args)
-    elif args.command == "generate":
-        generate(args)
-    else:
+    if args.command is None:
         parser.print_help()
+        return
+    
+    args.func(args)
 
 if __name__ == "__main__":
     main() 
