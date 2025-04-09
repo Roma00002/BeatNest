@@ -142,11 +142,9 @@ def create_gradio_interface():
     """Create the Gradio interface."""
     # Get available genres
     available_genres = get_available_genres()
-    if not available_genres:
-        raise ValueError("No se encontraron modelos entrenados. Por favor, entrena al menos un modelo antes de generar beats.")
     
     # Create genre dropdown
-    genre_choices = [(name, path) for path, name in available_genres]
+    genre_choices = [(name, path) for path, name in available_genres] if available_genres else []
     
     with gr.Blocks(title="BeatNest - Generador de Beats") as interface:
         gr.Markdown("# 🎵 BeatNest - Generador de Beats")
@@ -157,7 +155,8 @@ def create_gradio_interface():
                 genre_dropdown = gr.Dropdown(
                     choices=genre_choices,
                     label="Selecciona un género",
-                    value=genre_choices[0][1] if genre_choices else None
+                    value=genre_choices[0][1] if genre_choices else None,
+                    interactive=bool(genre_choices)  # Deshabilitar si no hay géneros
                 )
                 
                 length_slider = gr.Slider(
@@ -176,11 +175,24 @@ def create_gradio_interface():
                     label="Temperatura (creatividad)"
                 )
                 
-                generate_btn = gr.Button("🎵 Generar Beat")
+                generate_btn = gr.Button("🎵 Generar Beat", interactive=bool(genre_choices))  # Deshabilitar si no hay géneros
             
             with gr.Column():
                 output_audio = gr.Audio(label="Beat Generado")
                 status_text = gr.Textbox(label="Estado")
+        
+        if not genre_choices:
+            gr.Markdown("""
+            ## ⚠️ No hay modelos entrenados disponibles
+            
+            Para generar beats, primero necesitas entrenar un modelo:
+            1. Ejecuta `!python run_colab.py --mode train`
+            2. Selecciona un género
+            3. Sube archivos de audio para entrenar
+            4. Espera a que se complete el entrenamiento
+            
+            Una vez que tengas modelos entrenados, podrás generar beats.
+            """)
         
         generate_btn.click(
             fn=generate_beat,
