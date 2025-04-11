@@ -36,8 +36,9 @@ def select_genre() -> str:
 
 def setup_environment(genre_path: str):
     """Setup the environment for training a specific genre."""
-    # Create the complete genre directory structure
-    base_dir = 'generos'
+    # Create the complete genre directory structure in the project root
+    project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    base_dir = os.path.join(project_root, 'generos')
     os.makedirs(base_dir, exist_ok=True)
     
     # Create directories for each genre and subgenre
@@ -68,17 +69,17 @@ def setup_environment(genre_path: str):
     print("\n" + "="*50)
     print(f"✓ Entrenando para el género: {get_genre_name(genre_path)}")
     print("\n✓ Directorios disponibles:")
-    print(f"  - Audio: {os.path.abspath(os.path.join(genre_dir, 'audio'))}")
-    print(f"  - Modelos: {os.path.abspath(os.path.join(genre_dir, 'models'))}")
+    print(f"  - Audio: {os.path.abspath(os.path.join(base_dir, genre_dir, 'audio'))}")
+    print(f"  - Modelos: {os.path.abspath(os.path.join(base_dir, genre_dir, 'models'))}")
     print("\n📁 Para entrenar el modelo, coloca tus archivos MP3 en:")
-    print(f"   {os.path.abspath(os.path.join(genre_dir, 'audio'))}")
+    print(f"   {os.path.abspath(os.path.join(base_dir, genre_dir, 'audio'))}")
     print("\nSi estás en Google Colab, puedes subir los archivos usando:")
     print("1. El botón de 'Upload' en el panel izquierdo")
     print("2. O usando el comando:")
-    print(f"   !cp /content/drive/MyDrive/tus_archivos/*.mp3 {os.path.join(genre_dir, 'audio')}/")
+    print(f"   !cp /content/drive/MyDrive/tus_archivos/*.mp3 {os.path.join(base_dir, genre_dir, 'audio')}/")
     print("="*50 + "\n")
     
-    return genre_dir
+    return os.path.join(base_dir, genre_dir)
 
 def find_audio_files(genre_dir: str):
     """Find audio files in the genre directory."""
