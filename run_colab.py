@@ -195,104 +195,89 @@ def create_gradio_interface():
     return interface
 
 def main():
-    # Parse command line arguments
-    parser = argparse.ArgumentParser(description='Entrenar modelo o generar beats')
-    parser.add_argument('--mode', choices=['train', 'generate'], default='generate',
-                      help='Modo de operación: entrenar o generar beats')
-    parser.add_argument('--epochs', type=int, default=100, help='Número de épocas de entrenamiento')
-    parser.add_argument('--batch-size', type=int, default=32, help='Tamaño del batch')
-    parser.add_argument('--sequence-length', type=int, default=64, help='Longitud de la secuencia')
-    parser.add_argument('--n-mels', type=int, default=128, help='Número de bandas mel')
-    parser.add_argument('--process-batch-size', type=int, default=3, help='Número de archivos a procesar a la vez')
+    parser = argparse.ArgumentParser(description='Train music generation model')
+    parser.add_argument('--genre', type=str, required=True, help='Genre to train on')
+    parser.add_argument('--epochs', type=int, default=50, help='Number of epochs to train')
+    parser.add_argument('--batch_size', type=int, default=32, help='Batch size for training')
     args = parser.parse_args()
     
-    if args.mode == 'train':
-        try:
-            # Select genre
-            genre_path = select_genre()
-            
-            # Setup environment
-            genre_dir = setup_environment(genre_path)
-            
-            # Ask for audio files path
-            audio_path = input("\nIngresa la ruta donde están tus archivos MP3: ").strip()
-            audio_files = find_audio_files(audio_path)
-            if not audio_files:
-                sys.exit(1)
-            
-            # Initialize preprocessor
-            preprocessor = MusicPreprocessor(n_mels=args.n_mels)
-            
-            # Load and preprocess dataset in batches
-            print("\nCargando y preprocesando archivos de audio...")
-            print("Este proceso puede tardar varios minutos dependiendo del número de archivos.")
-            print("Se procesarán los archivos en lotes para evitar problemas de memoria.")
-            
-            X, y = preprocessor.load_dataset(
-                audio_path,
-                sequence_length=args.sequence_length,
-                batch_size=args.process_batch_size
-            )
-            
-            # Print dataset information
-            print(f"\nDataset cargado exitosamente:")
-            print(f"- Forma de entrada: {X.shape}")
-            print(f"- Forma de objetivo: {y.shape}")
-            print(f"- Número de muestras: {X.shape[0]}")
-            
-            # Initialize trainer with memory-efficient settings
-            print("\nInicializando el modelo...")
-            trainer = MusicTrainer(
-                input_shape=(args.n_mels, args.sequence_length),
-                units=256,
-                num_layers=3,
-                dropout_rate=0.3
-            )
-            
-            # Train model with memory monitoring
-            print("\nIniciando entrenamiento...")
-            print("El entrenamiento se realizará con las siguientes optimizaciones:")
-            print("- Procesamiento por lotes para reducir el uso de memoria")
-            print("- Limpieza de memoria después de cada lote")
-            print("- Guardado automático de checkpoints en la carpeta del género")
-            
-            # Create models directory if it doesn't exist
-            models_dir = os.path.join(genre_dir, 'models')
-            os.makedirs(models_dir, exist_ok=True)
-            
-            history = trainer.train(
-                X, y,
-                epochs=args.epochs,
-                batch_size=args.batch_size,
-                validation_split=0.2,
-                checkpoint_dir=models_dir
-            )
-            
-            # Save final model to genre-specific directory
-            model_path = os.path.join(models_dir, 'model.h5')
-            trainer.model.save(model_path)
-            
-            print("\nEntrenamiento completado exitosamente!")
-            print(f"Pérdida final de entrenamiento: {history['train_loss'][-1]:.4f}")
-            print(f"Pérdida final de validación: {history['val_loss'][-1]:.4f}")
-            print(f"Modelo final guardado en: {model_path}")
-            print(f"Checkpoints guardados en: {models_dir}")
-            
-            # Clear memory after training
-            del X, y, trainer, history
-            import gc
-            gc.collect()
-            
-        except Exception as e:
-            print(f"\nError durante el entrenamiento: {str(e)}")
-            import traceback
-            traceback.print_exc()
-            sys.exit(1)
-    
-    # Always launch Gradio interface
-    print("\nIniciando interfaz de generación de beats...")
-    interface = create_gradio_interface()
-    interface.launch(share=True)
+    try:
+        # Setup environment
+        print("\n=== Configurando entorno ===")
+        genre_dir = setup_environment(args.genre)
+        print(f"Directorio del género: {genre_dir}")
+        
+        # Find audio files
+        print("\n=== Buscando archivos de audio ===")
+        audio_dir = os.path.join(genre_dir, 'audio')
+        audio_files = find_audio_files(audio_dir)
+        if not audio_files:
+            print(f"No se encontraron archivos de audio en {audio_dir}")
+            print("Por favor, sube tus archivos MP3 a la carpeta correspondiente en Google Drive")
+            return
+        
+        print(f"\nEncontrados {len(audio_files)} archivos de audio")
+        print("Archivos encontrados:")
+        for file in audio_files:
+            print(f"- {file}")
+        
+        # Initialize preprocessor
+        print("\n=== Inicializando preprocesador ===")
+        preprocessor = MusicPreprocessor()
+        
+        # Load and preprocess dataset
+        print("\n=== Cargando y preprocesando dataset ===")
+        print("Este proceso puede tomar varios minutos...")
+        X, y = preprocessor.load_dataset(audio_dir, sequence_length=100, batch_size=3)
+        
+        print("\nDataset preprocesado exitosamente!")
+        print(f"Forma del dataset de entrada: {X.shape}")
+        print(f"Forma del dataset objetivo: {y.shape}")
+        
+        # Initialize trainer
+        print("\n=== Inicializando entrenador ===")
+        input_shape = (X.shape[1], X.shape[2])  # (n_mels, sequence_length)
+        trainer = MusicTrainer(
+            input_shape=input_shape,
+            units=256,
+            num_layers=2,
+            dropout_rate=0.2,
+            learning_rate=0.001
+        )
+        
+        # Create models directory if it doesn't exist
+        models_dir = os.path.join(genre_dir, 'models')
+        os.makedirs(models_dir, exist_ok=True)
+        
+        # Train model
+        print("\n=== Iniciando entrenamiento ===")
+        print("El entrenamiento se realizará con las siguientes optimizaciones:")
+        print("- Procesamiento por lotes para reducir el uso de memoria")
+        print("- Limpieza de memoria después de cada lote")
+        print("- Guardado automático de checkpoints en la carpeta del género")
+        
+        history = trainer.train(
+            X, y,
+            epochs=args.epochs,
+            batch_size=args.batch_size,
+            validation_split=0.2,
+            checkpoint_dir=models_dir
+        )
+        
+        # Save final model
+        model_path = os.path.join(models_dir, 'model.h5')
+        trainer.model.save(model_path)
+        
+        print("\nEntrenamiento completado exitosamente!")
+        print(f"Pérdida final de entrenamiento: {history['train_loss'][-1]:.4f}")
+        print(f"Pérdida final de validación: {history['val_loss'][-1]:.4f}")
+        print(f"Modelo final guardado en: {model_path}")
+        print(f"Checkpoints guardados en: {models_dir}")
+        
+    except Exception as e:
+        print(f"\nError durante el entrenamiento: {str(e)}")
+        import traceback
+        traceback.print_exc()
 
 if __name__ == '__main__':
     main() 
