@@ -36,39 +36,6 @@ def select_genre() -> str:
 
 def setup_environment(genre_path: str):
     """Setup the environment for training a specific genre."""
-    # Mount Google Drive
-    from google.colab import drive
-    drive.mount('/content/drive')
-    
-    # Create a symbolic link from Drive to the project
-    drive_genres_path = '/content/drive/MyDrive/BeatNest/generos'
-    project_genres_path = '/content/BeatNest/generos'
-    
-    # Create the directory in Drive if it doesn't exist
-    os.makedirs(drive_genres_path, exist_ok=True)
-    
-    # Create the complete genre directory structure in Drive
-    for genre_key, genre_data in GENRE_STRUCTURE.items():
-        genre_dir = os.path.join(drive_genres_path, genre_key)
-        os.makedirs(os.path.join(genre_dir, 'models'), exist_ok=True)
-        os.makedirs(os.path.join(genre_dir, 'audio'), exist_ok=True)
-        
-        if 'subgenres' in genre_data:
-            for subgenre_key, subgenre_data in genre_data['subgenres'].items():
-                subgenre_dir = os.path.join(genre_dir, subgenre_key)
-                os.makedirs(os.path.join(subgenre_dir, 'models'), exist_ok=True)
-                os.makedirs(os.path.join(subgenre_dir, 'audio'), exist_ok=True)
-                
-                if 'subgenres' in subgenre_data:
-                    for subsubgenre_key in subgenre_data['subgenres']:
-                        subsubgenre_dir = os.path.join(subgenre_dir, subsubgenre_key)
-                        os.makedirs(os.path.join(subsubgenre_dir, 'models'), exist_ok=True)
-                        os.makedirs(os.path.join(subsubgenre_dir, 'audio'), exist_ok=True)
-    
-    # Create symbolic link
-    if not os.path.exists(project_genres_path):
-        os.symlink(drive_genres_path, project_genres_path)
-    
     # Get full genre path
     genre_dir = get_genre_path(genre_path)
     if not genre_dir:
@@ -76,46 +43,39 @@ def setup_environment(genre_path: str):
         print("Usa el formato: genero/subgenero o genero/subgenero/subsubgenero")
         sys.exit(1)
     
+    # Create the genre directory structure if it doesn't exist
+    base_dir = 'generos'
+    genre_full_path = os.path.join(base_dir, genre_dir)
+    os.makedirs(os.path.join(genre_full_path, 'models'), exist_ok=True)
+    
     print("\n" + "="*50)
     print(f"✓ Entrenando para el género: {get_genre_name(genre_path)}")
-    print("\n✓ Directorios disponibles:")
-    print(f"  - Audio en Drive: {os.path.join(drive_genres_path, genre_dir, 'audio')}")
-    print(f"  - Modelos en Drive: {os.path.join(drive_genres_path, genre_dir, 'models')}")
-    print("\n📁 Para entrenar el modelo:")
-    print("1. Sube tus archivos MP3 a la carpeta correspondiente en tu Google Drive:")
-    print(f"   {os.path.join(drive_genres_path, genre_dir, 'audio')}")
-    print("2. Los archivos estarán disponibles automáticamente en Colab")
+    print(f"✓ Los modelos se guardarán en: {os.path.abspath(os.path.join(genre_full_path, 'models'))}")
+    print("\n📁 Por favor, ingresa la ruta donde están tus archivos MP3 para entrenar")
+    print("Ejemplo: /content/drive/MyDrive/mis_archivos_mp3")
     print("="*50 + "\n")
     
-    return os.path.join(project_genres_path, genre_dir)
+    return genre_full_path
 
-def find_audio_files(genre_dir: str):
-    """Find audio files in the genre directory."""
-    audio_dir = os.path.join(genre_dir, 'audio')
-    search_paths = [
-        audio_dir,  # Genre-specific directory
-        os.path.join('/content/BeatNest', audio_dir),  # Google Colab path
-        os.path.join('/content', audio_dir)  # Alternative Colab path
-    ]
+def find_audio_files(audio_path: str):
+    """Find audio files in the specified directory."""
+    if not os.path.exists(audio_path):
+        print(f"❌ La ruta no existe: {audio_path}")
+        return None
     
     audio_files = []
-    for path in search_paths:
-        if os.path.exists(path):
-            print(f"\nBuscando archivos de audio en: {path}")
-            for file in os.listdir(path):
-                if file.endswith(('.mp3', '.wav', '.ogg')):
-                    audio_files.append(os.path.join(path, file))
-                    print(f"✓ Encontrado: {file}")
+    for file in os.listdir(audio_path):
+        if file.endswith(('.mp3', '.wav', '.ogg')):
+            audio_files.append(os.path.join(audio_path, file))
     
     if not audio_files:
-        print("\n❌ No se encontraron archivos de audio.")
-        print("\nPor favor, sube tus archivos de audio a una de estas ubicaciones:")
-        for path in search_paths:
-            print(f"- {path}")
-        print("\nSi estás en Google Colab, puedes subir los archivos usando:")
-        print("1. El botón de 'Upload' en el panel izquierdo")
-        print("2. O usando el comando: !cp /content/drive/MyDrive/tus_archivos/*.mp3 " + audio_dir)
+        print(f"❌ No se encontraron archivos de audio en: {audio_path}")
+        print("Asegúrate de que los archivos tengan extensión .mp3, .wav o .ogg")
         return None
+    
+    print(f"\n✓ Encontrados {len(audio_files)} archivos de audio:")
+    for file in audio_files:
+        print(f"- {os.path.basename(file)}")
     
     return audio_files
 
@@ -252,8 +212,9 @@ def main():
         # Setup environment
         genre_dir = setup_environment(genre_path)
         
-        # Find audio files
-        audio_files = find_audio_files(genre_dir)
+        # Ask for audio files path
+        audio_path = input("\nIngresa la ruta donde están tus archivos MP3: ").strip()
+        audio_files = find_audio_files(audio_path)
         if not audio_files:
             sys.exit(1)
         
@@ -263,7 +224,7 @@ def main():
         try:
             # Load and preprocess dataset
             print("\nCargando y preprocesando archivos de audio...")
-            X, y = preprocessor.load_dataset(os.path.join(genre_dir, 'audio'), sequence_length=args.sequence_length)
+            X, y = preprocessor.load_dataset(audio_path, sequence_length=args.sequence_length)
             
             # Print dataset information
             print(f"\nDataset cargado exitosamente:")
