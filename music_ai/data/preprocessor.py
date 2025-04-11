@@ -4,6 +4,8 @@ import librosa
 import tensorflow as tf
 from typing import Tuple, List
 from pathlib import Path
+import gc
+import psutil
 
 class MusicPreprocessor:
     def __init__(self, n_mels: int = 128, sr: int = 22050):
@@ -82,6 +84,16 @@ class MusicPreprocessor:
         Returns:
             Tuple[np.ndarray, np.ndarray]: Input and target sequences for training
         """
+        def get_memory_usage():
+            process = psutil.Process()
+            return process.memory_info().rss / 1024 / 1024  # MB
+        
+        def clear_memory():
+            gc.collect()
+            tf.keras.backend.clear_session()
+            if tf.config.list_physical_devices('GPU'):
+                tf.config.experimental.reset_memory_stats('GPU:0')
+        
         # Get all audio files in the directory
         audio_files = [f for f in os.listdir(data_dir) if f.endswith(('.mp3', '.wav', '.ogg'))]
         
@@ -90,6 +102,7 @@ class MusicPreprocessor:
         
         print(f"Found {len(audio_files)} audio files")
         print(f"Processing files in batches of {batch_size}")
+        print(f"Initial memory usage: {get_memory_usage():.2f} MB")
         
         all_sequences = []
         all_targets = []
@@ -98,6 +111,7 @@ class MusicPreprocessor:
         for i in range(0, len(audio_files), batch_size):
             batch_files = audio_files[i:i + batch_size]
             print(f"\nProcessing batch {i//batch_size + 1}/{(len(audio_files) + batch_size - 1)//batch_size}")
+            print(f"Memory before batch: {get_memory_usage():.2f} MB")
             
             batch_sequences = []
             batch_targets = []
@@ -107,17 +121,27 @@ class MusicPreprocessor:
                 file_path = os.path.join(data_dir, audio_file)
                 
                 try:
+                    # Clear memory before processing new file
+                    clear_memory()
+                    
                     # Load and convert to spectrogram
                     spectrogram = self.load_audio(file_path)
                     
                     # Create sequences
                     sequences, targets = self.create_sequences(spectrogram, sequence_length)
                     
+                    # Convert to float32 to reduce memory usage
+                    sequences = sequences.astype(np.float32)
+                    targets = targets.astype(np.float32)
+                    
                     batch_sequences.append(sequences)
                     batch_targets.append(targets)
                     
-                    # Clear memory
-                    del spectrogram
+                    # Clear memory after processing file
+                    del spectrogram, sequences, targets
+                    clear_memory()
+                    
+                    print(f"Memory after processing {audio_file}: {get_memory_usage():.2f} MB")
                     
                 except Exception as e:
                     print(f"Error processing {audio_file}: {str(e)}")
@@ -128,26 +152,40 @@ class MusicPreprocessor:
                 X_batch = np.concatenate(batch_sequences, axis=0)
                 y_batch = np.concatenate(batch_targets, axis=0)
                 
+                # Clear memory before appending
+                del batch_sequences, batch_targets
+                clear_memory()
+                
                 all_sequences.append(X_batch)
                 all_targets.append(y_batch)
                 
-                # Clear memory
-                del batch_sequences, batch_targets, X_batch, y_batch
+                # Clear memory after appending
+                del X_batch, y_batch
+                clear_memory()
+                
+                print(f"Memory after batch: {get_memory_usage():.2f} MB")
             
-            # Force garbage collection
-            import gc
+            # Force garbage collection between batches
             gc.collect()
         
         if not all_sequences:
             raise ValueError("No valid sequences were created from the audio files")
         
+        # Clear memory before final concatenation
+        clear_memory()
+        
         # Concatenate all batches
         X = np.concatenate(all_sequences, axis=0)
         y = np.concatenate(all_targets, axis=0)
         
+        # Clear memory after concatenation
+        del all_sequences, all_targets
+        clear_memory()
+        
         print(f"\nCreated {len(X)} sequences from {len(audio_files)} audio files")
         print(f"Input shape: {X.shape}")
         print(f"Target shape: {y.shape}")
+        print(f"Final memory usage: {get_memory_usage():.2f} MB")
         
         return X, y
 
