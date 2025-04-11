@@ -207,22 +207,22 @@ def main():
     args = parser.parse_args()
     
     if args.mode == 'train':
-        # Select genre
-        genre_path = select_genre()
-        
-        # Setup environment
-        genre_dir = setup_environment(genre_path)
-        
-        # Ask for audio files path
-        audio_path = input("\nIngresa la ruta donde están tus archivos MP3: ").strip()
-        audio_files = find_audio_files(audio_path)
-        if not audio_files:
-            sys.exit(1)
-        
-        # Initialize preprocessor
-        preprocessor = MusicPreprocessor(n_mels=args.n_mels)
-        
         try:
+            # Select genre
+            genre_path = select_genre()
+            
+            # Setup environment
+            genre_dir = setup_environment(genre_path)
+            
+            # Ask for audio files path
+            audio_path = input("\nIngresa la ruta donde están tus archivos MP3: ").strip()
+            audio_files = find_audio_files(audio_path)
+            if not audio_files:
+                sys.exit(1)
+            
+            # Initialize preprocessor
+            preprocessor = MusicPreprocessor(n_mels=args.n_mels)
+            
             # Load and preprocess dataset in batches
             print("\nCargando y preprocesando archivos de audio...")
             print("Este proceso puede tardar varios minutos dependiendo del número de archivos.")
@@ -241,6 +241,7 @@ def main():
             print(f"- Número de muestras: {X.shape[0]}")
             
             # Initialize trainer with memory-efficient settings
+            print("\nInicializando el modelo...")
             trainer = MusicTrainer(
                 input_shape=(args.n_mels, args.sequence_length),
                 units=256,
@@ -272,8 +273,15 @@ def main():
             print(f"Pérdida final de validación: {history['val_loss'][-1]:.4f}")
             print(f"Modelo guardado en: {model_path}")
             
+            # Clear memory after training
+            del X, y, trainer, history
+            import gc
+            gc.collect()
+            
         except Exception as e:
             print(f"\nError durante el entrenamiento: {str(e)}")
+            import traceback
+            traceback.print_exc()
             sys.exit(1)
     
     # Always launch Gradio interface
