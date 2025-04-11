@@ -246,8 +246,7 @@ def main():
                 input_shape=(args.n_mels, args.sequence_length),
                 units=256,
                 num_layers=3,
-                dropout_rate=0.3,
-                batch_size=args.batch_size
+                dropout_rate=0.3
             )
             
             # Train model with memory monitoring
