@@ -45,7 +45,7 @@ def setup_environment(genre_path: str):
     project_genres_path = '/content/BeatNest/generos'
     
     # Create the directory in Drive if it doesn't exist
-    !mkdir -p {drive_genres_path}
+    os.makedirs(drive_genres_path, exist_ok=True)
     
     # Create the complete genre directory structure in Drive
     for genre_key, genre_data in GENRE_STRUCTURE.items():
@@ -66,7 +66,8 @@ def setup_environment(genre_path: str):
                         os.makedirs(os.path.join(subsubgenre_dir, 'audio'), exist_ok=True)
     
     # Create symbolic link
-    !ln -s {drive_genres_path} {project_genres_path}
+    if not os.path.exists(project_genres_path):
+        os.symlink(drive_genres_path, project_genres_path)
     
     # Get full genre path
     genre_dir = get_genre_path(genre_path)
