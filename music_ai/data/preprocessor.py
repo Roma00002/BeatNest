@@ -6,6 +6,8 @@ from typing import Tuple, List
 from pathlib import Path
 import gc
 import psutil
+import h5py
+import tempfile
 
 class MusicPreprocessor:
     def __init__(self, n_mels: int = 128, sr: int = 22050):
@@ -75,6 +77,7 @@ class MusicPreprocessor:
     def load_dataset(self, data_dir: str, sequence_length: int, batch_size: int = 3) -> Tuple[np.ndarray, np.ndarray]:
         """
         Load and preprocess all audio files in a directory, processing them in batches.
+        Saves processed data to disk to avoid memory issues.
         
         Args:
             data_dir (str): Directory containing audio files
@@ -104,83 +107,100 @@ class MusicPreprocessor:
         print(f"Processing files in batches of {batch_size}")
         print(f"Initial memory usage: {get_memory_usage():.2f} MB")
         
-        all_sequences = []
-        all_targets = []
+        # Create temporary directory for processed data
+        temp_dir = tempfile.mkdtemp()
+        temp_file = os.path.join(temp_dir, 'processed_data.h5')
         
-        # Process files in batches
-        for i in range(0, len(audio_files), batch_size):
-            batch_files = audio_files[i:i + batch_size]
-            print(f"\nProcessing batch {i//batch_size + 1}/{(len(audio_files) + batch_size - 1)//batch_size}")
-            print(f"Memory before batch: {get_memory_usage():.2f} MB")
+        # Initialize HDF5 file
+        with h5py.File(temp_file, 'w') as h5f:
+            # Create datasets with compression
+            h5f.create_dataset('X', shape=(0, self.n_mels, sequence_length), 
+                              maxshape=(None, self.n_mels, sequence_length),
+                              dtype='float32', compression='gzip')
+            h5f.create_dataset('y', shape=(0, self.n_mels), 
+                              maxshape=(None, self.n_mels),
+                              dtype='float32', compression='gzip')
             
-            batch_sequences = []
-            batch_targets = []
+            total_sequences = 0
             
-            for audio_file in batch_files:
-                print(f"Processing: {audio_file}")
-                file_path = os.path.join(data_dir, audio_file)
+            # Process files in batches
+            for i in range(0, len(audio_files), batch_size):
+                batch_files = audio_files[i:i + batch_size]
+                print(f"\nProcessing batch {i//batch_size + 1}/{(len(audio_files) + batch_size - 1)//batch_size}")
+                print(f"Memory before batch: {get_memory_usage():.2f} MB")
                 
-                try:
-                    # Clear memory before processing new file
+                batch_sequences = []
+                batch_targets = []
+                
+                for audio_file in batch_files:
+                    print(f"Processing: {audio_file}")
+                    file_path = os.path.join(data_dir, audio_file)
+                    
+                    try:
+                        # Clear memory before processing new file
+                        clear_memory()
+                        
+                        # Load and convert to spectrogram
+                        spectrogram = self.load_audio(file_path)
+                        
+                        # Create sequences
+                        sequences, targets = self.create_sequences(spectrogram, sequence_length)
+                        
+                        # Convert to float32 to reduce memory usage
+                        sequences = sequences.astype(np.float32)
+                        targets = targets.astype(np.float32)
+                        
+                        batch_sequences.append(sequences)
+                        batch_targets.append(targets)
+                        
+                        # Clear memory after processing file
+                        del spectrogram, sequences, targets
+                        clear_memory()
+                        
+                        print(f"Memory after processing {audio_file}: {get_memory_usage():.2f} MB")
+                        
+                    except Exception as e:
+                        print(f"Error processing {audio_file}: {str(e)}")
+                        continue
+                
+                if batch_sequences:
+                    # Concatenate sequences in this batch
+                    X_batch = np.concatenate(batch_sequences, axis=0)
+                    y_batch = np.concatenate(batch_targets, axis=0)
+                    
+                    # Clear memory before saving to disk
+                    del batch_sequences, batch_targets
                     clear_memory()
                     
-                    # Load and convert to spectrogram
-                    spectrogram = self.load_audio(file_path)
+                    # Save batch to HDF5 file
+                    with h5py.File(temp_file, 'a') as h5f:
+                        # Resize datasets
+                        h5f['X'].resize(total_sequences + len(X_batch), axis=0)
+                        h5f['y'].resize(total_sequences + len(y_batch), axis=0)
+                        
+                        # Append data
+                        h5f['X'][total_sequences:] = X_batch
+                        h5f['y'][total_sequences:] = y_batch
+                        
+                        total_sequences += len(X_batch)
                     
-                    # Create sequences
-                    sequences, targets = self.create_sequences(spectrogram, sequence_length)
-                    
-                    # Convert to float32 to reduce memory usage
-                    sequences = sequences.astype(np.float32)
-                    targets = targets.astype(np.float32)
-                    
-                    batch_sequences.append(sequences)
-                    batch_targets.append(targets)
-                    
-                    # Clear memory after processing file
-                    del spectrogram, sequences, targets
+                    # Clear memory after saving
+                    del X_batch, y_batch
                     clear_memory()
                     
-                    print(f"Memory after processing {audio_file}: {get_memory_usage():.2f} MB")
-                    
-                except Exception as e:
-                    print(f"Error processing {audio_file}: {str(e)}")
-                    continue
-            
-            if batch_sequences:
-                # Concatenate sequences in this batch
-                X_batch = np.concatenate(batch_sequences, axis=0)
-                y_batch = np.concatenate(batch_targets, axis=0)
+                    print(f"Memory after batch: {get_memory_usage():.2f} MB")
                 
-                # Clear memory before appending
-                del batch_sequences, batch_targets
-                clear_memory()
-                
-                all_sequences.append(X_batch)
-                all_targets.append(y_batch)
-                
-                # Clear memory after appending
-                del X_batch, y_batch
-                clear_memory()
-                
-                print(f"Memory after batch: {get_memory_usage():.2f} MB")
-            
-            # Force garbage collection between batches
-            gc.collect()
+                # Force garbage collection between batches
+                gc.collect()
         
-        if not all_sequences:
-            raise ValueError("No valid sequences were created from the audio files")
+        # Load final data from HDF5 file
+        with h5py.File(temp_file, 'r') as h5f:
+            X = h5f['X'][:]
+            y = h5f['y'][:]
         
-        # Clear memory before final concatenation
-        clear_memory()
-        
-        # Concatenate all batches
-        X = np.concatenate(all_sequences, axis=0)
-        y = np.concatenate(all_targets, axis=0)
-        
-        # Clear memory after concatenation
-        del all_sequences, all_targets
-        clear_memory()
+        # Clean up temporary files
+        os.remove(temp_file)
+        os.rmdir(temp_dir)
         
         print(f"\nCreated {len(X)} sequences from {len(audio_files)} audio files")
         print(f"Input shape: {X.shape}")
