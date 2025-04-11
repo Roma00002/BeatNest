@@ -36,14 +36,20 @@ def select_genre() -> str:
 
 def setup_environment(genre_path: str):
     """Setup the environment for training a specific genre."""
-    # Create the complete genre directory structure in the project root
-    project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    base_dir = os.path.join(project_root, 'generos')
-    os.makedirs(base_dir, exist_ok=True)
+    # Mount Google Drive
+    from google.colab import drive
+    drive.mount('/content/drive')
     
-    # Create directories for each genre and subgenre
+    # Create a symbolic link from Drive to the project
+    drive_genres_path = '/content/drive/MyDrive/BeatNest/generos'
+    project_genres_path = '/content/BeatNest/generos'
+    
+    # Create the directory in Drive if it doesn't exist
+    !mkdir -p {drive_genres_path}
+    
+    # Create the complete genre directory structure in Drive
     for genre_key, genre_data in GENRE_STRUCTURE.items():
-        genre_dir = os.path.join(base_dir, genre_key)
+        genre_dir = os.path.join(drive_genres_path, genre_key)
         os.makedirs(os.path.join(genre_dir, 'models'), exist_ok=True)
         os.makedirs(os.path.join(genre_dir, 'audio'), exist_ok=True)
         
@@ -59,6 +65,9 @@ def setup_environment(genre_path: str):
                         os.makedirs(os.path.join(subsubgenre_dir, 'models'), exist_ok=True)
                         os.makedirs(os.path.join(subsubgenre_dir, 'audio'), exist_ok=True)
     
+    # Create symbolic link
+    !ln -s {drive_genres_path} {project_genres_path}
+    
     # Get full genre path
     genre_dir = get_genre_path(genre_path)
     if not genre_dir:
@@ -69,17 +78,15 @@ def setup_environment(genre_path: str):
     print("\n" + "="*50)
     print(f"✓ Entrenando para el género: {get_genre_name(genre_path)}")
     print("\n✓ Directorios disponibles:")
-    print(f"  - Audio: {os.path.abspath(os.path.join(base_dir, genre_dir, 'audio'))}")
-    print(f"  - Modelos: {os.path.abspath(os.path.join(base_dir, genre_dir, 'models'))}")
-    print("\n📁 Para entrenar el modelo, coloca tus archivos MP3 en:")
-    print(f"   {os.path.abspath(os.path.join(base_dir, genre_dir, 'audio'))}")
-    print("\nSi estás en Google Colab, puedes subir los archivos usando:")
-    print("1. El botón de 'Upload' en el panel izquierdo")
-    print("2. O usando el comando:")
-    print(f"   !cp /content/drive/MyDrive/tus_archivos/*.mp3 {os.path.join(base_dir, genre_dir, 'audio')}/")
+    print(f"  - Audio en Drive: {os.path.join(drive_genres_path, genre_dir, 'audio')}")
+    print(f"  - Modelos en Drive: {os.path.join(drive_genres_path, genre_dir, 'models')}")
+    print("\n📁 Para entrenar el modelo:")
+    print("1. Sube tus archivos MP3 a la carpeta correspondiente en tu Google Drive:")
+    print(f"   {os.path.join(drive_genres_path, genre_dir, 'audio')}")
+    print("2. Los archivos estarán disponibles automáticamente en Colab")
     print("="*50 + "\n")
     
-    return os.path.join(base_dir, genre_dir)
+    return os.path.join(project_genres_path, genre_dir)
 
 def find_audio_files(genre_dir: str):
     """Find audio files in the genre directory."""
