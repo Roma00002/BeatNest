@@ -203,6 +203,7 @@ def main():
     parser.add_argument('--batch-size', type=int, default=32, help='Tamaño del batch')
     parser.add_argument('--sequence-length', type=int, default=64, help='Longitud de la secuencia')
     parser.add_argument('--n-mels', type=int, default=128, help='Número de bandas mel')
+    parser.add_argument('--process-batch-size', type=int, default=3, help='Número de archivos a procesar a la vez')
     args = parser.parse_args()
     
     if args.mode == 'train':
@@ -222,9 +223,16 @@ def main():
         preprocessor = MusicPreprocessor(n_mels=args.n_mels)
         
         try:
-            # Load and preprocess dataset
+            # Load and preprocess dataset in batches
             print("\nCargando y preprocesando archivos de audio...")
-            X, y = preprocessor.load_dataset(audio_path, sequence_length=args.sequence_length)
+            print("Este proceso puede tardar varios minutos dependiendo del número de archivos.")
+            print("Se procesarán los archivos en lotes para evitar problemas de memoria.")
+            
+            X, y = preprocessor.load_dataset(
+                audio_path,
+                sequence_length=args.sequence_length,
+                batch_size=args.process_batch_size
+            )
             
             # Print dataset information
             print(f"\nDataset cargado exitosamente:")
@@ -232,16 +240,22 @@ def main():
             print(f"- Forma de objetivo: {y.shape}")
             print(f"- Número de muestras: {X.shape[0]}")
             
-            # Initialize trainer
+            # Initialize trainer with memory-efficient settings
             trainer = MusicTrainer(
                 input_shape=(args.n_mels, args.sequence_length),
                 units=256,
                 num_layers=3,
-                dropout_rate=0.3
+                dropout_rate=0.3,
+                batch_size=args.batch_size
             )
             
-            # Train model
+            # Train model with memory monitoring
             print("\nIniciando entrenamiento...")
+            print("El entrenamiento se realizará con las siguientes optimizaciones:")
+            print("- Procesamiento por lotes para reducir el uso de memoria")
+            print("- Limpieza de memoria después de cada lote")
+            print("- Guardado automático de checkpoints")
+            
             history = trainer.train(
                 X, y,
                 epochs=args.epochs,

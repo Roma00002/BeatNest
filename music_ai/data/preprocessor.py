@@ -70,20 +70,18 @@ class MusicPreprocessor:
         
         return np.array(sequences), np.array(targets)
 
-    def load_dataset(self, data_dir: str, sequence_length: int) -> Tuple[np.ndarray, np.ndarray]:
+    def load_dataset(self, data_dir: str, sequence_length: int, batch_size: int = 3) -> Tuple[np.ndarray, np.ndarray]:
         """
-        Load and preprocess all audio files in a directory.
+        Load and preprocess all audio files in a directory, processing them in batches.
         
         Args:
             data_dir (str): Directory containing audio files
             sequence_length (int): Length of input sequences
+            batch_size (int): Number of files to process at once
             
         Returns:
             Tuple[np.ndarray, np.ndarray]: Input and target sequences for training
         """
-        all_sequences = []
-        all_targets = []
-        
         # Get all audio files in the directory
         audio_files = [f for f in os.listdir(data_dir) if f.endswith(('.mp3', '.wav', '.ogg'))]
         
@@ -91,34 +89,63 @@ class MusicPreprocessor:
             raise ValueError(f"No audio files found in {data_dir}")
         
         print(f"Found {len(audio_files)} audio files")
+        print(f"Processing files in batches of {batch_size}")
         
-        # Process each audio file
-        for i, audio_file in enumerate(audio_files):
-            print(f"Processing file {i+1}/{len(audio_files)}: {audio_file}")
-            file_path = os.path.join(data_dir, audio_file)
+        all_sequences = []
+        all_targets = []
+        
+        # Process files in batches
+        for i in range(0, len(audio_files), batch_size):
+            batch_files = audio_files[i:i + batch_size]
+            print(f"\nProcessing batch {i//batch_size + 1}/{(len(audio_files) + batch_size - 1)//batch_size}")
             
-            try:
-                # Load and convert to spectrogram
-                spectrogram = self.load_audio(file_path)
+            batch_sequences = []
+            batch_targets = []
+            
+            for audio_file in batch_files:
+                print(f"Processing: {audio_file}")
+                file_path = os.path.join(data_dir, audio_file)
                 
-                # Create sequences
-                sequences, targets = self.create_sequences(spectrogram, sequence_length)
+                try:
+                    # Load and convert to spectrogram
+                    spectrogram = self.load_audio(file_path)
+                    
+                    # Create sequences
+                    sequences, targets = self.create_sequences(spectrogram, sequence_length)
+                    
+                    batch_sequences.append(sequences)
+                    batch_targets.append(targets)
+                    
+                    # Clear memory
+                    del spectrogram
+                    
+                except Exception as e:
+                    print(f"Error processing {audio_file}: {str(e)}")
+                    continue
+            
+            if batch_sequences:
+                # Concatenate sequences in this batch
+                X_batch = np.concatenate(batch_sequences, axis=0)
+                y_batch = np.concatenate(batch_targets, axis=0)
                 
-                all_sequences.append(sequences)
-                all_targets.append(targets)
+                all_sequences.append(X_batch)
+                all_targets.append(y_batch)
                 
-            except Exception as e:
-                print(f"Error processing {audio_file}: {str(e)}")
-                continue
+                # Clear memory
+                del batch_sequences, batch_targets, X_batch, y_batch
+            
+            # Force garbage collection
+            import gc
+            gc.collect()
         
         if not all_sequences:
             raise ValueError("No valid sequences were created from the audio files")
         
-        # Concatenate all sequences
+        # Concatenate all batches
         X = np.concatenate(all_sequences, axis=0)
         y = np.concatenate(all_targets, axis=0)
         
-        print(f"Created {len(X)} sequences from {len(audio_files)} audio files")
+        print(f"\nCreated {len(X)} sequences from {len(audio_files)} audio files")
         print(f"Input shape: {X.shape}")
         print(f"Target shape: {y.shape}")
         
