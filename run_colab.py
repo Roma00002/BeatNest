@@ -36,8 +36,27 @@ def select_genre() -> str:
 
 def setup_environment(genre_path: str):
     """Setup the environment for training a specific genre."""
-    # Create genre directories
-    create_genre_directories()
+    # Create the complete genre directory structure
+    base_dir = 'generos'
+    os.makedirs(base_dir, exist_ok=True)
+    
+    # Create directories for each genre and subgenre
+    for genre_key, genre_data in GENRE_STRUCTURE.items():
+        genre_dir = os.path.join(base_dir, genre_key)
+        os.makedirs(os.path.join(genre_dir, 'models'), exist_ok=True)
+        os.makedirs(os.path.join(genre_dir, 'audio'), exist_ok=True)
+        
+        if 'subgenres' in genre_data:
+            for subgenre_key, subgenre_data in genre_data['subgenres'].items():
+                subgenre_dir = os.path.join(genre_dir, subgenre_key)
+                os.makedirs(os.path.join(subgenre_dir, 'models'), exist_ok=True)
+                os.makedirs(os.path.join(subgenre_dir, 'audio'), exist_ok=True)
+                
+                if 'subgenres' in subgenre_data:
+                    for subsubgenre_key in subgenre_data['subgenres']:
+                        subsubgenre_dir = os.path.join(subgenre_dir, subsubgenre_key)
+                        os.makedirs(os.path.join(subsubgenre_dir, 'models'), exist_ok=True)
+                        os.makedirs(os.path.join(subsubgenre_dir, 'audio'), exist_ok=True)
     
     # Get full genre path
     genre_dir = get_genre_path(genre_path)
@@ -46,24 +65,17 @@ def setup_environment(genre_path: str):
         print("Usa el formato: genero/subgenero o genero/subgenero/subsubgenero")
         sys.exit(1)
     
-    # Create necessary directories
-    audio_dir = os.path.join(genre_dir, 'audio')
-    models_dir = os.path.join(genre_dir, 'models')
-    
-    os.makedirs(audio_dir, exist_ok=True)
-    os.makedirs(models_dir, exist_ok=True)
-    
     print("\n" + "="*50)
     print(f"✓ Entrenando para el género: {get_genre_name(genre_path)}")
-    print("\n✓ Directorios creados:")
-    print(f"  - Audio: {os.path.abspath(audio_dir)}")
-    print(f"  - Modelos: {os.path.abspath(models_dir)}")
+    print("\n✓ Directorios disponibles:")
+    print(f"  - Audio: {os.path.abspath(os.path.join(genre_dir, 'audio'))}")
+    print(f"  - Modelos: {os.path.abspath(os.path.join(genre_dir, 'models'))}")
     print("\n📁 Para entrenar el modelo, coloca tus archivos MP3 en:")
-    print(f"   {os.path.abspath(audio_dir)}")
+    print(f"   {os.path.abspath(os.path.join(genre_dir, 'audio'))}")
     print("\nSi estás en Google Colab, puedes subir los archivos usando:")
     print("1. El botón de 'Upload' en el panel izquierdo")
     print("2. O usando el comando:")
-    print(f"   !cp /content/drive/MyDrive/tus_archivos/*.mp3 {audio_dir}/")
+    print(f"   !cp /content/drive/MyDrive/tus_archivos/*.mp3 {os.path.join(genre_dir, 'audio')}/")
     print("="*50 + "\n")
     
     return genre_dir
