@@ -254,23 +254,29 @@ def main():
             print("El entrenamiento se realizará con las siguientes optimizaciones:")
             print("- Procesamiento por lotes para reducir el uso de memoria")
             print("- Limpieza de memoria después de cada lote")
-            print("- Guardado automático de checkpoints")
+            print("- Guardado automático de checkpoints en la carpeta del género")
+            
+            # Create models directory if it doesn't exist
+            models_dir = os.path.join(genre_dir, 'models')
+            os.makedirs(models_dir, exist_ok=True)
             
             history = trainer.train(
                 X, y,
                 epochs=args.epochs,
                 batch_size=args.batch_size,
-                validation_split=0.2
+                validation_split=0.2,
+                checkpoint_dir=models_dir
             )
             
-            # Save model to genre-specific directory
-            model_path = os.path.join(genre_dir, 'models', 'model.h5')
+            # Save final model to genre-specific directory
+            model_path = os.path.join(models_dir, 'model.h5')
             trainer.model.save(model_path)
             
             print("\nEntrenamiento completado exitosamente!")
             print(f"Pérdida final de entrenamiento: {history['train_loss'][-1]:.4f}")
             print(f"Pérdida final de validación: {history['val_loss'][-1]:.4f}")
-            print(f"Modelo guardado en: {model_path}")
+            print(f"Modelo final guardado en: {model_path}")
+            print(f"Checkpoints guardados en: {models_dir}")
             
             # Clear memory after training
             del X, y, trainer, history
