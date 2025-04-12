@@ -2,7 +2,7 @@ import os
 import numpy as np
 import tensorflow as tf
 from tensorflow.keras.models import Sequential, Model
-from tensorflow.keras.layers import LSTM, Dense, InputLayer
+from tensorflow.keras.layers import LSTM, Dense, InputLayer, TimeDistributed
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.callbacks import ModelCheckpoint, EarlyStopping
 
@@ -57,7 +57,7 @@ class MusicTrainer:
         
         # LSTM layers with reduced units
         for i in range(self.num_layers):
-            return_sequences = i < self.num_layers - 1
+            return_sequences = True  # Always return sequences to maintain shape
             model.add(LSTM(
                 self.units,
                 return_sequences=return_sequences,
@@ -65,8 +65,8 @@ class MusicTrainer:
                 recurrent_dropout=self.dropout_rate
             ))
         
-        # Output layer
-        model.add(Dense(self.input_shape[1], activation='softmax'))
+        # Output layer with TimeDistributed to maintain sequence length
+        model.add(TimeDistributed(Dense(self.input_shape[1], activation='softmax')))
         
         # Compile model with reduced learning rate
         model.compile(
