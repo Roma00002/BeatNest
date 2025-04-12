@@ -200,6 +200,7 @@ def main():
     parser.add_argument('--genre', type=str, help='Genre to train on')
     parser.add_argument('--epochs', type=int, default=50, help='Number of epochs to train')
     parser.add_argument('--batch_size', type=int, default=32, help='Batch size for training')
+    parser.add_argument('--songs_per_batch', type=int, default=10, help='Number of songs to process and train at once')
     args = parser.parse_args()
     
     try:
@@ -237,97 +238,90 @@ def main():
         for file in audio_files:
             print(f"- {file}")
         
-        # Initialize preprocessor
-        print("\n=== Inicializando preprocesador ===")
+        # Initialize preprocessor and trainer
+        print("\n=== Inicializando preprocesador y entrenador ===")
         preprocessor = MusicPreprocessor()
-        
-        # Load and preprocess dataset
-        print("\n=== Cargando y preprocesando dataset ===")
-        print("Este proceso puede tomar varios minutos...")
-        print("Se procesarán los archivos en lotes para evitar problemas de memoria.")
-        print("Por favor, espera hasta que se complete el procesamiento.")
-        
-        try:
-            X, y = preprocessor.load_dataset(audio_path, sequence_length=100, batch_size=3)
-            print("\nDataset preprocesado exitosamente!")
-            print(f"Forma del dataset de entrada: {X.shape}")
-            print(f"Forma del dataset objetivo: {y.shape}")
-            
-            # Clear memory after preprocessing
-            import gc
-            gc.collect()
-            
-        except Exception as e:
-            print(f"\nError durante el preprocesamiento: {str(e)}")
-            import traceback
-            traceback.print_exc()
-            return
-        
-        # Initialize trainer
-        print("\n=== Inicializando entrenador ===")
-        print("Configurando el modelo con los siguientes parámetros:")
-        print(f"- Unidades LSTM: 256")
-        print(f"- Número de capas: 2")
-        print(f"- Tasa de dropout: 0.2")
-        print(f"- Tasa de aprendizaje: 0.001")
-        
-        try:
-            input_shape = (X.shape[1], X.shape[2])  # (n_mels, sequence_length)
-            trainer = MusicTrainer(
-                input_shape=input_shape,
-                units=256,
-                num_layers=2,
-                dropout_rate=0.2,
-                learning_rate=0.001
-            )
-            print("✓ Entrenador inicializado correctamente")
-        except Exception as e:
-            print(f"\nError al inicializar el entrenador: {str(e)}")
-            import traceback
-            traceback.print_exc()
-            return
         
         # Create models directory if it doesn't exist
         models_dir = os.path.join(genre_dir, 'models')
         os.makedirs(models_dir, exist_ok=True)
         print(f"✓ Directorio de modelos creado en: {models_dir}")
         
-        # Train model
-        print("\n=== Iniciando entrenamiento ===")
-        print("El entrenamiento se realizará con las siguientes optimizaciones:")
-        print("- Procesamiento por lotes para reducir el uso de memoria")
-        print("- Limpieza de memoria después de cada lote")
-        print("- Guardado automático de checkpoints en la carpeta del género")
-        print(f"- Épocas: {args.epochs}")
-        print(f"- Tamaño de batch: {args.batch_size}")
+        # Process and train in batches
+        model_path = os.path.join(models_dir, 'model.h5')
+        trainer = None
         
-        try:
-            print("\nIniciando el entrenamiento...")
-            history = trainer.train(
-                X, y,
-                epochs=args.epochs,
-                batch_size=args.batch_size,
-                validation_split=0.2,
-                checkpoint_dir=models_dir
-            )
-            print("✓ Entrenamiento completado")
+        for i in range(0, len(audio_files), args.songs_per_batch):
+            batch_files = audio_files[i:i + args.songs_per_batch]
+            print(f"\n=== Procesando lote {i//args.songs_per_batch + 1}/{(len(audio_files) + args.songs_per_batch - 1)//args.songs_per_batch} ===")
+            print(f"Procesando {len(batch_files)} canciones...")
             
-            # Save final model
-            model_path = os.path.join(models_dir, 'model.h5')
-            trainer.model.save(model_path)
-            print(f"✓ Modelo final guardado en: {model_path}")
-            
-            print("\nEntrenamiento completado exitosamente!")
-            print(f"Pérdida final de entrenamiento: {history['train_loss'][-1]:.4f}")
-            print(f"Pérdida final de validación: {history['val_loss'][-1]:.4f}")
-            print(f"Modelo final guardado en: {model_path}")
-            print(f"Checkpoints guardados en: {models_dir}")
-            
-        except Exception as e:
-            print(f"\nError durante el entrenamiento: {str(e)}")
-            import traceback
-            traceback.print_exc()
-            return
+            try:
+                # Process batch of songs
+                X, y = preprocessor.load_dataset(audio_path, sequence_length=100, batch_size=3, 
+                                               specific_files=batch_files)
+                print(f"\n✓ Lote procesado exitosamente!")
+                print(f"Forma del dataset de entrada: {X.shape}")
+                print(f"Forma del dataset objetivo: {y.shape}")
+                
+                # Clear memory after preprocessing
+                import gc
+                gc.collect()
+                
+                # Initialize or load trainer
+                if trainer is None:
+                    print("\n=== Inicializando entrenador ===")
+                    print("Configurando el modelo con los siguientes parámetros:")
+                    print(f"- Unidades LSTM: 256")
+                    print(f"- Número de capas: 2")
+                    print(f"- Tasa de dropout: 0.2")
+                    print(f"- Tasa de aprendizaje: 0.001")
+                    
+                    input_shape = (X.shape[1], X.shape[2])
+                    trainer = MusicTrainer(
+                        input_shape=input_shape,
+                        units=256,
+                        num_layers=2,
+                        dropout_rate=0.2,
+                        learning_rate=0.001
+                    )
+                    print("✓ Entrenador inicializado correctamente")
+                else:
+                    print("\n=== Cargando modelo existente ===")
+                    trainer.model.load_weights(model_path)
+                    print("✓ Modelo cargado correctamente")
+                
+                # Train on current batch
+                print("\n=== Iniciando entrenamiento del lote ===")
+                print(f"Entrenando con {len(batch_files)} canciones...")
+                
+                history = trainer.train(
+                    X, y,
+                    epochs=args.epochs,
+                    batch_size=args.batch_size,
+                    validation_split=0.2,
+                    checkpoint_dir=models_dir
+                )
+                
+                # Save model after each batch
+                trainer.model.save(model_path)
+                print(f"\n✓ Modelo actualizado guardado en: {model_path}")
+                print(f"Pérdida final de entrenamiento: {history['train_loss'][-1]:.4f}")
+                print(f"Pérdida final de validación: {history['val_loss'][-1]:.4f}")
+                
+                # Clear memory after training
+                del X, y, history
+                gc.collect()
+                
+            except Exception as e:
+                print(f"\nError durante el procesamiento del lote: {str(e)}")
+                import traceback
+                traceback.print_exc()
+                continue
+        
+        print("\nEntrenamiento completado exitosamente!")
+        print(f"Modelo final guardado en: {model_path}")
+        print(f"Checkpoints guardados en: {models_dir}")
         
     except Exception as e:
         print(f"\nError general: {str(e)}")
