@@ -230,18 +230,16 @@ def main():
         
         # Initialize preprocessor with memory-efficient settings
         preprocessor = MusicPreprocessor(
-            sample_rate=22050,  # Reduced from 44100
             n_mels=128,         # Reduced from 256
-            hop_length=512,     # Increased from 256
-            n_fft=2048,         # Increased from 1024
-            sequence_length=50  # Reduced from 100
+            sr=22050           # Reduced from 44100
         )
         
         # Load and preprocess dataset with smaller batch size
-        X, y = preprocessor.load_and_preprocess_dataset(
-            audio_files,
+        X, y = preprocessor.load_dataset(
+            audio_path,
+            sequence_length=50,  # Reduced from 100
             batch_size=16,      # Reduced from 32
-            songs_per_batch=5   # Reduced from 10
+            specific_files=audio_files
         )
         
         print(f"\nDataset shapes:")
