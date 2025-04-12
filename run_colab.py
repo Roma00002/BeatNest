@@ -252,6 +252,11 @@ def main():
             print("\nDataset preprocesado exitosamente!")
             print(f"Forma del dataset de entrada: {X.shape}")
             print(f"Forma del dataset objetivo: {y.shape}")
+            
+            # Clear memory after preprocessing
+            import gc
+            gc.collect()
+            
         except Exception as e:
             print(f"\nError durante el preprocesamiento: {str(e)}")
             import traceback
@@ -266,18 +271,26 @@ def main():
         print(f"- Tasa de dropout: 0.2")
         print(f"- Tasa de aprendizaje: 0.001")
         
-        input_shape = (X.shape[1], X.shape[2])  # (n_mels, sequence_length)
-        trainer = MusicTrainer(
-            input_shape=input_shape,
-            units=256,
-            num_layers=2,
-            dropout_rate=0.2,
-            learning_rate=0.001
-        )
+        try:
+            input_shape = (X.shape[1], X.shape[2])  # (n_mels, sequence_length)
+            trainer = MusicTrainer(
+                input_shape=input_shape,
+                units=256,
+                num_layers=2,
+                dropout_rate=0.2,
+                learning_rate=0.001
+            )
+            print("✓ Entrenador inicializado correctamente")
+        except Exception as e:
+            print(f"\nError al inicializar el entrenador: {str(e)}")
+            import traceback
+            traceback.print_exc()
+            return
         
         # Create models directory if it doesn't exist
         models_dir = os.path.join(genre_dir, 'models')
         os.makedirs(models_dir, exist_ok=True)
+        print(f"✓ Directorio de modelos creado en: {models_dir}")
         
         # Train model
         print("\n=== Iniciando entrenamiento ===")
@@ -289,6 +302,7 @@ def main():
         print(f"- Tamaño de batch: {args.batch_size}")
         
         try:
+            print("\nIniciando el entrenamiento...")
             history = trainer.train(
                 X, y,
                 epochs=args.epochs,
@@ -296,10 +310,12 @@ def main():
                 validation_split=0.2,
                 checkpoint_dir=models_dir
             )
+            print("✓ Entrenamiento completado")
             
             # Save final model
             model_path = os.path.join(models_dir, 'model.h5')
             trainer.model.save(model_path)
+            print(f"✓ Modelo final guardado en: {model_path}")
             
             print("\nEntrenamiento completado exitosamente!")
             print(f"Pérdida final de entrenamiento: {history['train_loss'][-1]:.4f}")
