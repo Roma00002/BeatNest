@@ -214,11 +214,19 @@ def main():
         # Setup environment
         project_path = setup_environment(genre_path)
         
-        # Find audio files
-        audio_files = find_audio_files()
+        # Ask for audio files path
+        print("\n=== Buscando archivos de audio ===")
+        audio_path = input("\nIngresa la ruta donde están tus archivos MP3: ").strip()
+        audio_files = find_audio_files(audio_path)
         if not audio_files:
-            print("No se encontraron archivos de audio. Por favor, sube archivos MP3 a la carpeta correspondiente.")
+            print(f"No se encontraron archivos de audio en {audio_path}")
+            print("Por favor, sube tus archivos MP3 a la carpeta correspondiente")
             return
+        
+        print(f"\nEncontrados {len(audio_files)} archivos de audio")
+        print("Archivos encontrados:")
+        for file in audio_files:
+            print(f"- {file}")
         
         # Initialize preprocessor with memory-efficient settings
         preprocessor = MusicPreprocessor(
