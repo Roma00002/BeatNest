@@ -196,12 +196,27 @@ def create_gradio_interface():
 
 def main():
     parser = argparse.ArgumentParser(description='Train music generation model')
-    parser.add_argument('--genre', type=str, required=True, help='Genre to train on')
+    parser.add_argument('--genre', type=str, help='Genre to train on')
     parser.add_argument('--epochs', type=int, default=50, help='Number of epochs to train')
     parser.add_argument('--batch_size', type=int, default=32, help='Batch size for training')
     args = parser.parse_args()
     
     try:
+        # Select genre if not provided
+        if not args.genre:
+            print("\n=== Selección de género ===")
+            print("Géneros disponibles:")
+            for genre, subgenres in GENRE_STRUCTURE.items():
+                print(f"\n{genre}:")
+                for subgenre in subgenres:
+                    print(f"  - {subgenre}")
+            
+            genre_path = input("\nIngresa el género y subgénero (ejemplo: hiphop_rap/trap): ").strip()
+            if not genre_path:
+                print("Debes especificar un género válido")
+                return
+            args.genre = genre_path
+        
         # Setup environment
         print("\n=== Configurando entorno ===")
         genre_dir = setup_environment(args.genre)

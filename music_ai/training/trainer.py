@@ -85,7 +85,7 @@ class MusicTrainer:
         """
         # Create checkpoint callback
         if checkpoint_dir:
-            checkpoint_path = os.path.join(checkpoint_dir, 'checkpoint-{epoch:02d}.h5')
+            checkpoint_path = os.path.join(checkpoint_dir, 'checkpoint-{epoch:02d}.weights.h5')
             checkpoint_callback = tf.keras.callbacks.ModelCheckpoint(
                 filepath=checkpoint_path,
                 save_best_only=True,
