@@ -198,8 +198,21 @@ def create_gradio_interface():
 def main():
     """Main function to run the training process."""
     try:
+        # Select genre
+        print("\n=== Selección de género ===")
+        print("Géneros disponibles:")
+        for genre, subgenres in GENRE_STRUCTURE.items():
+            print(f"\n{genre}:")
+            for subgenre in subgenres:
+                print(f"  - {subgenre}")
+        
+        genre_path = input("\nIngresa el género y subgénero (ejemplo: hiphop_rap/trap): ").strip()
+        if not genre_path:
+            print("Debes especificar un género válido")
+            return
+        
         # Setup environment
-        project_path = setup_environment()
+        project_path = setup_environment(genre_path)
         
         # Find audio files
         audio_files = find_audio_files()
@@ -242,7 +255,7 @@ def main():
             epochs=50,          # Reduced from 100
             batch_size=16,      # Reduced from 32
             validation_split=0.2,
-            checkpoint_dir=os.path.join(project_path, 'checkpoints')
+            checkpoint_dir=os.path.join(project_path, 'models')
         )
         
         print("\nTraining completed!")
