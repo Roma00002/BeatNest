@@ -53,19 +53,18 @@ class MusicTrainer:
         
         return model
     
-    def train(self, X: np.ndarray, y: np.ndarray, epochs: int = 50, 
-              batch_size: int = 16, validation_split: float = 0.2,
-              checkpoint_dir: str = None) -> dict:
+    def train(self, X: np.ndarray, y: np.ndarray, epochs: int = 50, batch_size: int = 16,
+             validation_split: float = 0.2, checkpoint_dir: str = None) -> dict:
         """
-        Train the model with memory-efficient settings.
+        Train the model on the given data.
         
         Args:
-            X (np.ndarray): Input data
-            y (np.ndarray): Target data
-            epochs (int): Number of epochs to train
-            batch_size (int): Batch size for training
-            validation_split (float): Fraction of data to use for validation
-            checkpoint_dir (str): Directory to save checkpoints
+            X: Input data
+            y: Target data
+            epochs: Number of epochs to train
+            batch_size: Batch size for training
+            validation_split: Fraction of data to use for validation
+            checkpoint_dir: Directory to save checkpoints
             
         Returns:
             dict: Training history
@@ -73,13 +72,14 @@ class MusicTrainer:
         # Create checkpoint callback if directory is provided
         callbacks = []
         if checkpoint_dir:
-            checkpoint_path = os.path.join(checkpoint_dir, 'checkpoint.h5')
+            os.makedirs(checkpoint_dir, exist_ok=True)
+            checkpoint_path = os.path.join(checkpoint_dir, 'checkpoint.weights.h5')
             callbacks.append(tf.keras.callbacks.ModelCheckpoint(
-                checkpoint_path,
+                filepath=checkpoint_path,
                 monitor='val_loss',
                 save_best_only=True,
                 save_weights_only=True,
-                mode='min'
+                verbose=1
             ))
         
         # Add early stopping
@@ -89,16 +89,19 @@ class MusicTrainer:
             restore_best_weights=True
         ))
         
-        # Train with reduced batch size and memory-efficient settings
+        # Train the model
         history = self.model.fit(
             X, y,
             epochs=epochs,
             batch_size=batch_size,
             validation_split=validation_split,
             callbacks=callbacks,
-            verbose=1,
-            shuffle=True
+            verbose=1
         )
+        
+        # Save the final model
+        if checkpoint_dir:
+            self.model.save_weights(os.path.join(checkpoint_dir, 'model.weights.h5'))
         
         return {
             'train_loss': history.history['loss'],

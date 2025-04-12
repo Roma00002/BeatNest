@@ -214,6 +214,8 @@ def main():
         
         # Setup environment
         project_path = setup_environment(genre_path)
+        models_dir = os.path.join(project_path, 'models')
+        os.makedirs(models_dir, exist_ok=True)
         
         # Ask for audio files path
         print("\n=== Buscando archivos de audio ===")
@@ -232,7 +234,7 @@ def main():
         # Initialize preprocessor and trainer
         preprocessor = MusicPreprocessor(n_mels=128, sr=22050)
         trainer = None
-        model_path = os.path.join(project_path, 'models', 'model.h5')
+        model_weights_path = os.path.join(models_dir, 'model.weights.h5')
         
         # Process and train in batches
         for i in range(0, len(audio_files), 10):  # Process 10 songs at a time
@@ -299,9 +301,15 @@ def main():
                         learning_rate=0.001
                     )
                     print("✓ Entrenador inicializado correctamente")
+                    
+                    # Try to load existing weights if they exist
+                    if os.path.exists(model_weights_path):
+                        print("\n=== Cargando pesos existentes ===")
+                        trainer.model.load_weights(model_weights_path)
+                        print("✓ Pesos cargados correctamente")
                 else:
                     print("\n=== Cargando modelo existente ===")
-                    trainer.model.load_weights(model_path)
+                    trainer.model.load_weights(model_weights_path)
                     print("✓ Modelo cargado correctamente")
                 
                 # Train on current batch
@@ -313,12 +321,10 @@ def main():
                     epochs=50,
                     batch_size=16,
                     validation_split=0.2,
-                    checkpoint_dir=os.path.join(project_path, 'models')
+                    checkpoint_dir=models_dir
                 )
                 
-                # Save model after each batch
-                trainer.model.save(model_path)
-                print(f"\n✓ Modelo actualizado guardado en: {model_path}")
+                print(f"\n✓ Modelo actualizado guardado en: {model_weights_path}")
                 print(f"Pérdida final de entrenamiento: {history['train_loss'][-1]:.4f}")
                 print(f"Pérdida final de validación: {history['val_loss'][-1]:.4f}")
                 
@@ -333,7 +339,7 @@ def main():
                 continue
         
         print("\nEntrenamiento completado exitosamente!")
-        print(f"Modelo final guardado en: {model_path}")
+        print(f"Modelo final guardado en: {model_weights_path}")
         
     except Exception as e:
         print(f"Error during training: {str(e)}")
