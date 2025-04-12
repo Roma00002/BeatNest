@@ -9,47 +9,51 @@ class MusicTrainer:
         self,
         input_shape: Tuple[int, int],
         units: int = 256,
-        num_layers: int = 3,
-        dropout_rate: float = 0.3
+        num_layers: int = 2,
+        dropout_rate: float = 0.2,
+        learning_rate: float = 0.001
     ):
         """
-        Initialize the MusicTrainer.
+        Initialize the music trainer.
         
         Args:
             input_shape (Tuple[int, int]): Shape of input data (n_mels, sequence_length)
             units (int): Number of units in LSTM layers
             num_layers (int): Number of LSTM layers
             dropout_rate (float): Dropout rate for regularization
+            learning_rate (float): Learning rate for the optimizer
         """
         self.input_shape = input_shape
         self.units = units
         self.num_layers = num_layers
         self.dropout_rate = dropout_rate
+        self.learning_rate = learning_rate
         
         # Build model
         self.model = self._build_model()
     
     def _build_model(self) -> tf.keras.Model:
-        """Build the LSTM model."""
-        model = tf.keras.Sequential([
-            # Input layer
-            tf.keras.layers.InputLayer(input_shape=self.input_shape),
-            
-            # LSTM layers
-            *[tf.keras.layers.LSTM(
+        """Build the LSTM model architecture."""
+        model = tf.keras.Sequential()
+        
+        # Input layer
+        model.add(tf.keras.layers.Input(shape=self.input_shape))
+        
+        # LSTM layers
+        for i in range(self.num_layers):
+            return_sequences = i < self.num_layers - 1
+            model.add(tf.keras.layers.LSTM(
                 self.units,
-                return_sequences=True,
-                dropout=self.dropout_rate,
-                recurrent_dropout=self.dropout_rate/2
-            ) for _ in range(self.num_layers)],
-            
-            # Output layer
-            tf.keras.layers.Dense(self.input_shape[0], activation='sigmoid')
-        ])
+                return_sequences=return_sequences,
+                dropout=self.dropout_rate
+            ))
+        
+        # Output layer
+        model.add(tf.keras.layers.Dense(self.input_shape[0], activation='sigmoid'))
         
         # Compile model
         model.compile(
-            optimizer=tf.keras.optimizers.Adam(learning_rate=0.001),
+            optimizer=tf.keras.optimizers.Adam(learning_rate=self.learning_rate),
             loss='mse',
             metrics=['mae']
         )
