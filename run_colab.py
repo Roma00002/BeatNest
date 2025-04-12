@@ -6,6 +6,7 @@ from music_ai.training.trainer import MusicTrainer
 from music_ai.data.preprocessor import MusicPreprocessor
 from music_ai.data.genres import get_genre_path, create_genre_directories, get_genre_name, GENRE_STRUCTURE
 import gradio as gr
+import numpy as np
 
 def print_genre_structure(structure: dict, level: int = 0):
     """Print the genre structure in a tree-like format."""
@@ -228,45 +229,111 @@ def main():
         for file in audio_files:
             print(f"- {file}")
         
-        # Initialize preprocessor with memory-efficient settings
-        preprocessor = MusicPreprocessor(
-            n_mels=128,         # Reduced from 256
-            sr=22050           # Reduced from 44100
-        )
+        # Initialize preprocessor and trainer
+        preprocessor = MusicPreprocessor(n_mels=128, sr=22050)
+        trainer = None
+        model_path = os.path.join(project_path, 'models', 'model.h5')
         
-        # Load and preprocess dataset with smaller batch size
-        X, y = preprocessor.load_dataset(
-            audio_path,
-            sequence_length=50,  # Reduced from 100
-            batch_size=16,      # Reduced from 32
-            specific_files=audio_files
-        )
+        # Process and train in batches
+        for i in range(0, len(audio_files), 10):  # Process 10 songs at a time
+            batch_files = audio_files[i:i + 10]
+            print(f"\n=== Procesando lote {i//10 + 1}/{(len(audio_files) + 9)//10} ===")
+            print(f"Procesando {len(batch_files)} canciones...")
+            
+            try:
+                # Process batch of songs (3 at a time to manage memory)
+                all_sequences = []
+                all_targets = []
+                
+                for j in range(0, len(batch_files), 3):
+                    sub_batch = batch_files[j:j + 3]
+                    print(f"\nProcesando sub-lote {j//3 + 1}/{(len(batch_files) + 2)//3}")
+                    
+                    # Clear memory before processing sub-batch
+                    import gc
+                    gc.collect()
+                    
+                    # Process each file in the sub-batch
+                    for audio_file in sub_batch:
+                        try:
+                            print(f"Procesando: {audio_file}")
+                            X, y = preprocessor.load_dataset(
+                                audio_path,
+                                sequence_length=50,
+                                batch_size=16,
+                                specific_files=[audio_file]
+                            )
+                            all_sequences.extend(X)
+                            all_targets.extend(y)
+                            
+                            # Clear memory after processing each file
+                            del X, y
+                            gc.collect()
+                            
+                        except Exception as e:
+                            print(f"Error procesando {audio_file}: {str(e)}")
+                            continue
+                
+                # Convert lists to numpy arrays
+                X = np.array(all_sequences)
+                y = np.array(all_targets)
+                
+                print(f"\n✓ Lote procesado exitosamente!")
+                print(f"Forma del dataset de entrada: {X.shape}")
+                print(f"Forma del dataset objetivo: {y.shape}")
+                
+                # Initialize or load trainer
+                if trainer is None:
+                    print("\n=== Inicializando entrenador ===")
+                    print("Configurando el modelo con los siguientes parámetros:")
+                    print(f"- Unidades LSTM: 128")
+                    print(f"- Número de capas: 2")
+                    print(f"- Tasa de dropout: 0.2")
+                    print(f"- Tasa de aprendizaje: 0.001")
+                    
+                    trainer = MusicTrainer(
+                        input_shape=(X.shape[1], X.shape[2]),
+                        units=128,
+                        num_layers=2,
+                        dropout_rate=0.2,
+                        learning_rate=0.001
+                    )
+                    print("✓ Entrenador inicializado correctamente")
+                else:
+                    print("\n=== Cargando modelo existente ===")
+                    trainer.model.load_weights(model_path)
+                    print("✓ Modelo cargado correctamente")
+                
+                # Train on current batch
+                print("\n=== Iniciando entrenamiento del lote ===")
+                print(f"Entrenando con {len(batch_files)} canciones...")
+                
+                history = trainer.train(
+                    X, y,
+                    epochs=50,
+                    batch_size=16,
+                    validation_split=0.2,
+                    checkpoint_dir=os.path.join(project_path, 'models')
+                )
+                
+                # Save model after each batch
+                trainer.model.save(model_path)
+                print(f"\n✓ Modelo actualizado guardado en: {model_path}")
+                print(f"Pérdida final de entrenamiento: {history['train_loss'][-1]:.4f}")
+                print(f"Pérdida final de validación: {history['val_loss'][-1]:.4f}")
+                
+                # Clear memory after training
+                del X, y, history
+                gc.collect()
+                
+            except Exception as e:
+                print(f"\nError durante el procesamiento del lote: {str(e)}")
+                import traceback
+                traceback.print_exc()
+                continue
         
-        print(f"\nDataset shapes:")
-        print(f"Input shape: {X.shape}")
-        print(f"Target shape: {y.shape}")
-        
-        # Initialize trainer with memory-efficient settings
-        trainer = MusicTrainer(
-            input_shape=(X.shape[1], X.shape[2]),
-            units=128,          # Reduced from 256
-            num_layers=2,
-            dropout_rate=0.2,
-            learning_rate=0.001
-        )
-        
-        # Train model with reduced epochs
-        history = trainer.train(
-            X, y,
-            epochs=50,          # Reduced from 100
-            batch_size=16,      # Reduced from 32
-            validation_split=0.2,
-            checkpoint_dir=os.path.join(project_path, 'models')
-        )
-        
-        print("\nTraining completed!")
-        print(f"Final training loss: {history['train_loss'][-1]:.4f}")
-        print(f"Final validation loss: {history['val_loss'][-1]:.4f}")
+        print("\nEntrenamiento completado exitosamente!")
+        print(f"Modelo final guardado en: {model_path}")
         
     except Exception as e:
         print(f"Error during training: {str(e)}")
