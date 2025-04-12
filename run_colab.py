@@ -34,28 +34,29 @@ def select_genre() -> str:
             return genre_path
         print("❌ Género no válido. Por favor, usa el formato correcto.")
 
-def setup_environment(genre_path: str):
-    """Setup the environment for training a specific genre."""
-    # Get full genre path
-    genre_dir = get_genre_path(genre_path)
-    if not genre_dir:
-        print(f"❌ Género no válido: {genre_path}")
-        print("Usa el formato: genero/subgenero o genero/subgenero/subsubgenero")
-        sys.exit(1)
+def setup_environment(genre_path: str) -> str:
+    """
+    Setup the environment for training a specific genre.
     
-    # Create the genre directory structure if it doesn't exist
+    Args:
+        genre_path (str): Path to the genre (e.g., 'hiphop_rap/trap')
+        
+    Returns:
+        str: Path to the genre directory
+    """
+    # Create base directories
     base_dir = 'generos'
-    genre_full_path = os.path.join(base_dir, genre_dir)
-    os.makedirs(os.path.join(genre_full_path, 'models'), exist_ok=True)
+    genre_dir = os.path.join(base_dir, genre_path)
     
-    print("\n" + "="*50)
-    print(f"✓ Entrenando para el género: {get_genre_name(genre_path)}")
-    print(f"✓ Los modelos se guardarán en: {os.path.abspath(os.path.join(genre_full_path, 'models'))}")
-    print("\n📁 Por favor, ingresa la ruta donde están tus archivos MP3 para entrenar")
-    print("Ejemplo: /content/drive/MyDrive/mis_archivos_mp3")
-    print("="*50 + "\n")
+    # Create directory structure
+    os.makedirs(os.path.join(genre_dir, 'models'), exist_ok=True)
+    os.makedirs(os.path.join(genre_dir, 'audio'), exist_ok=True)
     
-    return genre_full_path
+    print(f"\nEstructura de directorios creada en: {genre_dir}")
+    print(f"- Modelos: {os.path.join(genre_dir, 'models')}")
+    print(f"- Audio: {os.path.join(genre_dir, 'audio')}")
+    
+    return genre_dir
 
 def find_audio_files(audio_path: str):
     """Find audio files in the specified directory."""
