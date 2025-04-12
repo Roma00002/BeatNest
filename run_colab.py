@@ -244,14 +244,28 @@ def main():
         # Load and preprocess dataset
         print("\n=== Cargando y preprocesando dataset ===")
         print("Este proceso puede tomar varios minutos...")
-        X, y = preprocessor.load_dataset(audio_path, sequence_length=100, batch_size=3)
+        print("Se procesarán los archivos en lotes para evitar problemas de memoria.")
+        print("Por favor, espera hasta que se complete el procesamiento.")
         
-        print("\nDataset preprocesado exitosamente!")
-        print(f"Forma del dataset de entrada: {X.shape}")
-        print(f"Forma del dataset objetivo: {y.shape}")
+        try:
+            X, y = preprocessor.load_dataset(audio_path, sequence_length=100, batch_size=3)
+            print("\nDataset preprocesado exitosamente!")
+            print(f"Forma del dataset de entrada: {X.shape}")
+            print(f"Forma del dataset objetivo: {y.shape}")
+        except Exception as e:
+            print(f"\nError durante el preprocesamiento: {str(e)}")
+            import traceback
+            traceback.print_exc()
+            return
         
         # Initialize trainer
         print("\n=== Inicializando entrenador ===")
+        print("Configurando el modelo con los siguientes parámetros:")
+        print(f"- Unidades LSTM: 256")
+        print(f"- Número de capas: 2")
+        print(f"- Tasa de dropout: 0.2")
+        print(f"- Tasa de aprendizaje: 0.001")
+        
         input_shape = (X.shape[1], X.shape[2])  # (n_mels, sequence_length)
         trainer = MusicTrainer(
             input_shape=input_shape,
@@ -271,27 +285,36 @@ def main():
         print("- Procesamiento por lotes para reducir el uso de memoria")
         print("- Limpieza de memoria después de cada lote")
         print("- Guardado automático de checkpoints en la carpeta del género")
+        print(f"- Épocas: {args.epochs}")
+        print(f"- Tamaño de batch: {args.batch_size}")
         
-        history = trainer.train(
-            X, y,
-            epochs=args.epochs,
-            batch_size=args.batch_size,
-            validation_split=0.2,
-            checkpoint_dir=models_dir
-        )
-        
-        # Save final model
-        model_path = os.path.join(models_dir, 'model.h5')
-        trainer.model.save(model_path)
-        
-        print("\nEntrenamiento completado exitosamente!")
-        print(f"Pérdida final de entrenamiento: {history['train_loss'][-1]:.4f}")
-        print(f"Pérdida final de validación: {history['val_loss'][-1]:.4f}")
-        print(f"Modelo final guardado en: {model_path}")
-        print(f"Checkpoints guardados en: {models_dir}")
+        try:
+            history = trainer.train(
+                X, y,
+                epochs=args.epochs,
+                batch_size=args.batch_size,
+                validation_split=0.2,
+                checkpoint_dir=models_dir
+            )
+            
+            # Save final model
+            model_path = os.path.join(models_dir, 'model.h5')
+            trainer.model.save(model_path)
+            
+            print("\nEntrenamiento completado exitosamente!")
+            print(f"Pérdida final de entrenamiento: {history['train_loss'][-1]:.4f}")
+            print(f"Pérdida final de validación: {history['val_loss'][-1]:.4f}")
+            print(f"Modelo final guardado en: {model_path}")
+            print(f"Checkpoints guardados en: {models_dir}")
+            
+        except Exception as e:
+            print(f"\nError durante el entrenamiento: {str(e)}")
+            import traceback
+            traceback.print_exc()
+            return
         
     except Exception as e:
-        print(f"\nError durante el entrenamiento: {str(e)}")
+        print(f"\nError general: {str(e)}")
         import traceback
         traceback.print_exc()
 
