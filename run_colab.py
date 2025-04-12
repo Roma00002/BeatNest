@@ -196,137 +196,62 @@ def create_gradio_interface():
     return interface
 
 def main():
-    parser = argparse.ArgumentParser(description='Train music generation model')
-    parser.add_argument('--genre', type=str, help='Genre to train on')
-    parser.add_argument('--epochs', type=int, default=50, help='Number of epochs to train')
-    parser.add_argument('--batch_size', type=int, default=32, help='Batch size for training')
-    parser.add_argument('--songs_per_batch', type=int, default=10, help='Number of songs to process and train at once')
-    args = parser.parse_args()
-    
+    """Main function to run the training process."""
     try:
-        # Select genre if not provided
-        if not args.genre:
-            print("\n=== Selección de género ===")
-            print("Géneros disponibles:")
-            for genre, subgenres in GENRE_STRUCTURE.items():
-                print(f"\n{genre}:")
-                for subgenre in subgenres:
-                    print(f"  - {subgenre}")
-            
-            genre_path = input("\nIngresa el género y subgénero (ejemplo: hiphop_rap/trap): ").strip()
-            if not genre_path:
-                print("Debes especificar un género válido")
-                return
-            args.genre = genre_path
-        
         # Setup environment
-        print("\n=== Configurando entorno ===")
-        genre_dir = setup_environment(args.genre)
-        print(f"Directorio del género: {genre_dir}")
+        project_path = setup_environment()
         
-        # Ask for audio files path
-        print("\n=== Buscando archivos de audio ===")
-        audio_path = input("\nIngresa la ruta donde están tus archivos MP3: ").strip()
-        audio_files = find_audio_files(audio_path)
+        # Find audio files
+        audio_files = find_audio_files()
         if not audio_files:
-            print(f"No se encontraron archivos de audio en {audio_path}")
-            print("Por favor, sube tus archivos MP3 a la carpeta correspondiente")
+            print("No se encontraron archivos de audio. Por favor, sube archivos MP3 a la carpeta correspondiente.")
             return
         
-        print(f"\nEncontrados {len(audio_files)} archivos de audio")
-        print("Archivos encontrados:")
-        for file in audio_files:
-            print(f"- {file}")
+        # Initialize preprocessor with memory-efficient settings
+        preprocessor = MusicPreprocessor(
+            sample_rate=22050,  # Reduced from 44100
+            n_mels=128,         # Reduced from 256
+            hop_length=512,     # Increased from 256
+            n_fft=2048,         # Increased from 1024
+            sequence_length=50  # Reduced from 100
+        )
         
-        # Initialize preprocessor and trainer
-        print("\n=== Inicializando preprocesador y entrenador ===")
-        preprocessor = MusicPreprocessor()
+        # Load and preprocess dataset with smaller batch size
+        X, y = preprocessor.load_and_preprocess_dataset(
+            audio_files,
+            batch_size=16,      # Reduced from 32
+            songs_per_batch=5   # Reduced from 10
+        )
         
-        # Create models directory if it doesn't exist
-        models_dir = os.path.join(genre_dir, 'models')
-        os.makedirs(models_dir, exist_ok=True)
-        print(f"✓ Directorio de modelos creado en: {models_dir}")
+        print(f"\nDataset shapes:")
+        print(f"Input shape: {X.shape}")
+        print(f"Target shape: {y.shape}")
         
-        # Process and train in batches
-        model_path = os.path.join(models_dir, 'model.h5')
-        trainer = None
+        # Initialize trainer with memory-efficient settings
+        trainer = MusicTrainer(
+            input_shape=(X.shape[1], X.shape[2]),
+            units=128,          # Reduced from 256
+            num_layers=2,
+            dropout_rate=0.2,
+            learning_rate=0.001
+        )
         
-        for i in range(0, len(audio_files), args.songs_per_batch):
-            batch_files = audio_files[i:i + args.songs_per_batch]
-            print(f"\n=== Procesando lote {i//args.songs_per_batch + 1}/{(len(audio_files) + args.songs_per_batch - 1)//args.songs_per_batch} ===")
-            print(f"Procesando {len(batch_files)} canciones...")
-            
-            try:
-                # Process batch of songs
-                X, y = preprocessor.load_dataset(audio_path, sequence_length=100, batch_size=3, 
-                                               specific_files=batch_files)
-                print(f"\n✓ Lote procesado exitosamente!")
-                print(f"Forma del dataset de entrada: {X.shape}")
-                print(f"Forma del dataset objetivo: {y.shape}")
-                
-                # Clear memory after preprocessing
-                import gc
-                gc.collect()
-                
-                # Initialize or load trainer
-                if trainer is None:
-                    print("\n=== Inicializando entrenador ===")
-                    print("Configurando el modelo con los siguientes parámetros:")
-                    print(f"- Unidades LSTM: 256")
-                    print(f"- Número de capas: 2")
-                    print(f"- Tasa de dropout: 0.2")
-                    print(f"- Tasa de aprendizaje: 0.001")
-                    
-                    input_shape = (X.shape[1], X.shape[2])
-                    trainer = MusicTrainer(
-                        input_shape=input_shape,
-                        units=256,
-                        num_layers=2,
-                        dropout_rate=0.2,
-                        learning_rate=0.001
-                    )
-                    print("✓ Entrenador inicializado correctamente")
-                else:
-                    print("\n=== Cargando modelo existente ===")
-                    trainer.model.load_weights(model_path)
-                    print("✓ Modelo cargado correctamente")
-                
-                # Train on current batch
-                print("\n=== Iniciando entrenamiento del lote ===")
-                print(f"Entrenando con {len(batch_files)} canciones...")
-                
-                history = trainer.train(
-                    X, y,
-                    epochs=args.epochs,
-                    batch_size=args.batch_size,
-                    validation_split=0.2,
-                    checkpoint_dir=models_dir
-                )
-                
-                # Save model after each batch
-                trainer.model.save(model_path)
-                print(f"\n✓ Modelo actualizado guardado en: {model_path}")
-                print(f"Pérdida final de entrenamiento: {history['train_loss'][-1]:.4f}")
-                print(f"Pérdida final de validación: {history['val_loss'][-1]:.4f}")
-                
-                # Clear memory after training
-                del X, y, history
-                gc.collect()
-                
-            except Exception as e:
-                print(f"\nError durante el procesamiento del lote: {str(e)}")
-                import traceback
-                traceback.print_exc()
-                continue
+        # Train model with reduced epochs
+        history = trainer.train(
+            X, y,
+            epochs=50,          # Reduced from 100
+            batch_size=16,      # Reduced from 32
+            validation_split=0.2,
+            checkpoint_dir=os.path.join(project_path, 'checkpoints')
+        )
         
-        print("\nEntrenamiento completado exitosamente!")
-        print(f"Modelo final guardado en: {model_path}")
-        print(f"Checkpoints guardados en: {models_dir}")
+        print("\nTraining completed!")
+        print(f"Final training loss: {history['train_loss'][-1]:.4f}")
+        print(f"Final validation loss: {history['val_loss'][-1]:.4f}")
         
     except Exception as e:
-        print(f"\nError general: {str(e)}")
-        import traceback
-        traceback.print_exc()
+        print(f"Error during training: {str(e)}")
+        raise
 
 if __name__ == '__main__':
     main() 
