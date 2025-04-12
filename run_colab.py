@@ -236,20 +236,21 @@ def main():
         trainer = None
         model_weights_path = os.path.join(models_dir, 'model.weights.h5')
         
-        # Process and train in batches
-        for i in range(0, len(audio_files), 10):  # Process 10 songs at a time
-            batch_files = audio_files[i:i + 10]
-            print(f"\n=== Procesando lote {i//10 + 1}/{(len(audio_files) + 9)//10} ===")
+        # Process and train in smaller batches
+        batch_size = 5  # Process 5 songs at a time
+        for i in range(0, len(audio_files), batch_size):
+            batch_files = audio_files[i:i + batch_size]
+            print(f"\n=== Procesando lote {i//batch_size + 1}/{(len(audio_files) + batch_size - 1)//batch_size} ===")
             print(f"Procesando {len(batch_files)} canciones...")
             
             try:
-                # Process batch of songs (3 at a time to manage memory)
+                # Process batch of songs (2 at a time to manage memory)
                 all_sequences = []
                 all_targets = []
                 
-                for j in range(0, len(batch_files), 3):
-                    sub_batch = batch_files[j:j + 3]
-                    print(f"\nProcesando sub-lote {j//3 + 1}/{(len(batch_files) + 2)//3}")
+                for j in range(0, len(batch_files), 2):
+                    sub_batch = batch_files[j:j + 2]
+                    print(f"\nProcesando sub-lote {j//2 + 1}/{(len(batch_files) + 1)//2}")
                     
                     # Clear memory before processing sub-batch
                     import gc
@@ -262,7 +263,7 @@ def main():
                             X, y = preprocessor.load_dataset(
                                 audio_path,
                                 sequence_length=50,
-                                batch_size=16,
+                                batch_size=8,  # Reduced batch size
                                 specific_files=[audio_file]
                             )
                             all_sequences.extend(X)
@@ -288,14 +289,14 @@ def main():
                 if trainer is None:
                     print("\n=== Inicializando entrenador ===")
                     print("Configurando el modelo con los siguientes parámetros:")
-                    print(f"- Unidades LSTM: 128")
+                    print(f"- Unidades LSTM: 64")
                     print(f"- Número de capas: 2")
                     print(f"- Tasa de dropout: 0.2")
                     print(f"- Tasa de aprendizaje: 0.001")
                     
                     trainer = MusicTrainer(
                         input_shape=(X.shape[1], X.shape[2]),
-                        units=128,
+                        units=64,  # Reduced units
                         num_layers=2,
                         dropout_rate=0.2,
                         learning_rate=0.001
@@ -318,8 +319,8 @@ def main():
                 
                 history = trainer.train(
                     X, y,
-                    epochs=50,
-                    batch_size=16,
+                    epochs=30,  # Reduced epochs
+                    batch_size=8,  # Reduced batch size
                     validation_split=0.2,
                     checkpoint_dir=models_dir
                 )
