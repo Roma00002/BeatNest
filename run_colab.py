@@ -199,6 +199,13 @@ def create_gradio_interface():
 def main():
     """Main function to run the training process."""
     try:
+        # Force TensorFlow to use CPU and limit memory growth
+        os.environ['CUDA_VISIBLE_DEVICES'] = '-1'  # Disable GPU
+        import tensorflow as tf
+        physical_devices = tf.config.list_physical_devices('CPU')
+        for device in physical_devices:
+            tf.config.experimental.set_memory_growth(device, True)
+        
         # Select genre
         print("\n=== Selección de género ===")
         print("Géneros disponibles:")
@@ -237,45 +244,41 @@ def main():
         model_weights_path = os.path.join(models_dir, 'model.weights.h5')
         
         # Process and train in smaller batches
-        batch_size = 5  # Process 5 songs at a time
+        batch_size = 3  # Process 3 songs at a time
         for i in range(0, len(audio_files), batch_size):
             batch_files = audio_files[i:i + batch_size]
             print(f"\n=== Procesando lote {i//batch_size + 1}/{(len(audio_files) + batch_size - 1)//batch_size} ===")
             print(f"Procesando {len(batch_files)} canciones...")
             
             try:
-                # Process batch of songs (2 at a time to manage memory)
+                # Process batch of songs (1 at a time to manage memory)
                 all_sequences = []
                 all_targets = []
                 
-                for j in range(0, len(batch_files), 2):
-                    sub_batch = batch_files[j:j + 2]
-                    print(f"\nProcesando sub-lote {j//2 + 1}/{(len(batch_files) + 1)//2}")
+                for audio_file in batch_files:
+                    print(f"\nProcesando: {audio_file}")
                     
-                    # Clear memory before processing sub-batch
+                    # Clear memory before processing
                     import gc
                     gc.collect()
                     
-                    # Process each file in the sub-batch
-                    for audio_file in sub_batch:
-                        try:
-                            print(f"Procesando: {audio_file}")
-                            X, y = preprocessor.load_dataset(
-                                audio_path,
-                                sequence_length=50,
-                                batch_size=8,  # Reduced batch size
-                                specific_files=[audio_file]
-                            )
-                            all_sequences.extend(X)
-                            all_targets.extend(y)
-                            
-                            # Clear memory after processing each file
-                            del X, y
-                            gc.collect()
-                            
-                        except Exception as e:
-                            print(f"Error procesando {audio_file}: {str(e)}")
-                            continue
+                    try:
+                        X, y = preprocessor.load_dataset(
+                            audio_path,
+                            sequence_length=50,
+                            batch_size=4,  # Further reduced batch size
+                            specific_files=[audio_file]
+                        )
+                        all_sequences.extend(X)
+                        all_targets.extend(y)
+                        
+                        # Clear memory after processing
+                        del X, y
+                        gc.collect()
+                        
+                    except Exception as e:
+                        print(f"Error procesando {audio_file}: {str(e)}")
+                        continue
                 
                 # Convert lists to numpy arrays
                 X = np.array(all_sequences)
@@ -289,14 +292,14 @@ def main():
                 if trainer is None:
                     print("\n=== Inicializando entrenador ===")
                     print("Configurando el modelo con los siguientes parámetros:")
-                    print(f"- Unidades LSTM: 64")
+                    print(f"- Unidades LSTM: 32")
                     print(f"- Número de capas: 2")
                     print(f"- Tasa de dropout: 0.2")
                     print(f"- Tasa de aprendizaje: 0.001")
                     
                     trainer = MusicTrainer(
                         input_shape=(X.shape[1], X.shape[2]),
-                        units=64,  # Reduced units
+                        units=32,  # Further reduced units
                         num_layers=2,
                         dropout_rate=0.2,
                         learning_rate=0.001
@@ -319,8 +322,8 @@ def main():
                 
                 history = trainer.train(
                     X, y,
-                    epochs=30,  # Reduced epochs
-                    batch_size=8,  # Reduced batch size
+                    epochs=20,  # Further reduced epochs
+                    batch_size=4,  # Further reduced batch size
                     validation_split=0.2,
                     checkpoint_dir=models_dir
                 )
