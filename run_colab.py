@@ -207,13 +207,13 @@ def main():
         genre_dir = setup_environment(args.genre)
         print(f"Directorio del género: {genre_dir}")
         
-        # Find audio files
+        # Ask for audio files path
         print("\n=== Buscando archivos de audio ===")
-        audio_dir = os.path.join(genre_dir, 'audio')
-        audio_files = find_audio_files(audio_dir)
+        audio_path = input("\nIngresa la ruta donde están tus archivos MP3: ").strip()
+        audio_files = find_audio_files(audio_path)
         if not audio_files:
-            print(f"No se encontraron archivos de audio en {audio_dir}")
-            print("Por favor, sube tus archivos MP3 a la carpeta correspondiente en Google Drive")
+            print(f"No se encontraron archivos de audio en {audio_path}")
+            print("Por favor, sube tus archivos MP3 a la carpeta correspondiente")
             return
         
         print(f"\nEncontrados {len(audio_files)} archivos de audio")
@@ -228,7 +228,7 @@ def main():
         # Load and preprocess dataset
         print("\n=== Cargando y preprocesando dataset ===")
         print("Este proceso puede tomar varios minutos...")
-        X, y = preprocessor.load_dataset(audio_dir, sequence_length=100, batch_size=3)
+        X, y = preprocessor.load_dataset(audio_path, sequence_length=100, batch_size=3)
         
         print("\nDataset preprocesado exitosamente!")
         print(f"Forma del dataset de entrada: {X.shape}")
