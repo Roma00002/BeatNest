@@ -6,11 +6,20 @@ from tensorflow.keras.layers import LSTM, Dense, InputLayer
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.callbacks import ModelCheckpoint, EarlyStopping
 
-# Force TensorFlow to use CPU and limit memory growth
-os.environ['CUDA_VISIBLE_DEVICES'] = '-1'  # Disable GPU
+# Force TensorFlow to use CPU
+os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
+
+# Configure TensorFlow to use CPU
+tf.config.set_soft_device_placement(True)
 physical_devices = tf.config.list_physical_devices('CPU')
-for device in physical_devices:
-    tf.config.experimental.set_memory_growth(device, True)
+if physical_devices:
+    try:
+        # Set memory growth for CPU devices
+        for device in physical_devices:
+            tf.config.experimental.set_memory_growth(device, True)
+    except ValueError:
+        # If memory growth is not supported, just continue
+        pass
 
 class MusicTrainer:
     """Handles the training of the music generation model."""
@@ -18,7 +27,7 @@ class MusicTrainer:
     def __init__(
         self,
         input_shape: tuple,
-        units: int = 32,  # Further reduced from 64
+        units: int = 32,
         num_layers: int = 2,
         dropout_rate: float = 0.2,
         learning_rate: float = 0.001
@@ -72,8 +81,8 @@ class MusicTrainer:
         self,
         X: np.ndarray,
         y: np.ndarray,
-        epochs: int = 20,  # Further reduced from 30
-        batch_size: int = 4,  # Further reduced from 8
+        epochs: int = 20,
+        batch_size: int = 4,
         validation_split: float = 0.2,
         checkpoint_dir: str = None
     ) -> dict:
@@ -107,7 +116,7 @@ class MusicTrainer:
             # Early stopping to prevent overfitting
             early_stopping = EarlyStopping(
                 monitor='val_loss',
-                patience=2,  # Further reduced from 3
+                patience=2,
                 restore_best_weights=True,
                 verbose=1
             )

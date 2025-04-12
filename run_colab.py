@@ -199,12 +199,21 @@ def create_gradio_interface():
 def main():
     """Main function to run the training process."""
     try:
-        # Force TensorFlow to use CPU and limit memory growth
-        os.environ['CUDA_VISIBLE_DEVICES'] = '-1'  # Disable GPU
+        # Force TensorFlow to use CPU
+        os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
         import tensorflow as tf
+        
+        # Configure TensorFlow to use CPU
+        tf.config.set_soft_device_placement(True)
         physical_devices = tf.config.list_physical_devices('CPU')
-        for device in physical_devices:
-            tf.config.experimental.set_memory_growth(device, True)
+        if physical_devices:
+            try:
+                # Set memory growth for CPU devices
+                for device in physical_devices:
+                    tf.config.experimental.set_memory_growth(device, True)
+            except ValueError:
+                # If memory growth is not supported, just continue
+                pass
         
         # Select genre
         print("\n=== Selección de género ===")
@@ -266,7 +275,7 @@ def main():
                         X, y = preprocessor.load_dataset(
                             audio_path,
                             sequence_length=50,
-                            batch_size=4,  # Further reduced batch size
+                            batch_size=4,
                             specific_files=[audio_file]
                         )
                         all_sequences.extend(X)
@@ -299,7 +308,7 @@ def main():
                     
                     trainer = MusicTrainer(
                         input_shape=(X.shape[1], X.shape[2]),
-                        units=32,  # Further reduced units
+                        units=32,
                         num_layers=2,
                         dropout_rate=0.2,
                         learning_rate=0.001
@@ -322,8 +331,8 @@ def main():
                 
                 history = trainer.train(
                     X, y,
-                    epochs=20,  # Further reduced epochs
-                    batch_size=4,  # Further reduced batch size
+                    epochs=20,
+                    batch_size=4,
                     validation_split=0.2,
                     checkpoint_dir=models_dir
                 )
