@@ -2,7 +2,7 @@ import os
 import numpy as np
 import tensorflow as tf
 from tensorflow.keras.models import Sequential, Model
-from tensorflow.keras.layers import LSTM, Dense, InputLayer, TimeDistributed
+from tensorflow.keras.layers import LSTM, Dense, InputLayer, TimeDistributed, Input
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.callbacks import ModelCheckpoint, EarlyStopping
 
@@ -48,34 +48,28 @@ class MusicTrainer:
         self.learning_rate = learning_rate
         self.model = self._build_model()
     
-    def _build_model(self) -> Model:
+    def _build_model(self) -> None:
         """Build the LSTM model architecture."""
-        model = Sequential()
+        self.model = Sequential([
+            # Input layer
+            Input(shape=self.input_shape),
+            
+            # First LSTM layer
+            LSTM(32, return_sequences=True, dropout=0.2),
+            
+            # Second LSTM layer
+            LSTM(32, return_sequences=True, dropout=0.2),
+            
+            # Output layer
+            TimeDistributed(Dense(self.input_shape[0], activation='softmax'))
+        ])
         
-        # Input layer
-        model.add(InputLayer(shape=self.input_shape))
-        
-        # LSTM layers with reduced units
-        for i in range(self.num_layers):
-            return_sequences = True  # Always return sequences to maintain shape
-            model.add(LSTM(
-                self.units,
-                return_sequences=return_sequences,
-                dropout=self.dropout_rate,
-                recurrent_dropout=self.dropout_rate
-            ))
-        
-        # Output layer with TimeDistributed to maintain sequence length
-        model.add(TimeDistributed(Dense(self.input_shape[1], activation='softmax')))
-        
-        # Compile model with reduced learning rate
-        model.compile(
+        # Compile model
+        self.model.compile(
             optimizer=Adam(learning_rate=self.learning_rate),
             loss='categorical_crossentropy',
             metrics=['accuracy']
         )
-        
-        return model
     
     def train(
         self,
