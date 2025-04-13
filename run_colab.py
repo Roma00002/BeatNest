@@ -289,78 +289,37 @@ def main():
                     trainer = MusicTrainer(model=model)
                     print("✓ Modelo cargado correctamente")
             
-            # Process and train in smaller batches
-            batch_size = args.songs_per_batch
-            for i in range(0, len(audio_files), batch_size):
-                batch_files = audio_files[i:i + batch_size]
-                print(f"\n=== Procesando lote {i//batch_size + 1}/{(len(audio_files) + batch_size - 1)//batch_size} ===")
-                print(f"Procesando {len(batch_files)} canciones...")
+            # Procesar el lote actual
+            print(f"\n=== Procesando lote {batch_num + 1} de {total_batches} ===")
+            print(f"Procesando canciones: {', '.join(batch_files)}")
+            
+            # Procesar el lote actual
+            X, y = preprocessor.process_batch(batch_files)
+            
+            if X is not None and y is not None:
+                print(f"✓ Datos procesados correctamente")
+                print(f"✓ Forma de los datos de entrada: {X.shape}")
+                print(f"✓ Forma de los datos objetivo: {y.shape}")
                 
-                try:
-                    # Process batch of songs (1 at a time to manage memory)
-                    all_sequences = []
-                    all_targets = []
-                    
-                    for audio_file in batch_files:
-                        print(f"\nProcesando: {audio_file}")
-                        
-                        # Clear memory before processing
-                        import gc
-                        gc.collect()
-                        
-                        try:
-                            X, y = preprocessor.load_dataset(
-                                audio_path,
-                                sequence_length=50,
-                                batch_size=4,
-                                specific_files=[audio_file]
-                            )
-                            all_sequences.extend(X)
-                            all_targets.extend(y)
-                            
-                            # Clear memory after processing
-                            del X, y
-                            gc.collect()
-                            
-                        except Exception as e:
-                            print(f"Error procesando {audio_file}: {str(e)}")
-                            continue
-                    
-                    # Convert lists to numpy arrays
-                    X = np.array(all_sequences)
-                    y = np.array(all_targets)
-                    
-                    print(f"\n✓ Lote procesado exitosamente!")
-                    print(f"Forma del dataset de entrada: {X.shape}")
-                    print(f"Forma del dataset objetivo: {y.shape}")
-                    
-                    # Train on current batch
-                    print("\n=== Iniciando entrenamiento del lote ===")
-                    print(f"Entrenando con {len(batch_files)} canciones...")
-                    
-                    history = trainer.train(
-                        X, y,
-                        epochs=20,
-                        batch_size=4,
-                        validation_split=0.2,
-                        checkpoint_dir=models_dir
-                    )
-                    
-                    # Save the complete model (both architecture and weights)
-                    trainer.model.save(model_path)
-                    print(f"\n✓ Modelo actualizado guardado en: {model_path}")
-                    print(f"Pérdida final de entrenamiento: {history['train_loss'][-1]:.4f}")
-                    print(f"Pérdida final de validación: {history['val_loss'][-1]:.4f}")
-                    
-                    # Clear memory after training
-                    del X, y, history
-                    gc.collect()
-                    
-                except Exception as e:
-                    print(f"\nError durante el procesamiento del lote: {str(e)}")
-                    import traceback
-                    traceback.print_exc()
-                    continue
+                # Entrenar el modelo con una sola época
+                print("\n=== Entrenando modelo ===")
+                history = trainer.train(
+                    X, y,
+                    epochs=1,  # Solo una época por lote
+                    batch_size=16,
+                    validation_split=0.2,
+                    checkpoint_dir=model_dir
+                )
+                
+                # Mostrar métricas de entrenamiento
+                print("\n=== Métricas de entrenamiento ===")
+                print(f"✓ Pérdida de entrenamiento: {history['train_loss'][-1]:.4f}")
+                print(f"✓ Pérdida de validación: {history['val_loss'][-1]:.4f}")
+                
+                # Limpiar memoria
+                del X, y
+                gc.collect()
+                print("✓ Memoria liberada")
             
             print("\nEntrenamiento completado exitosamente!")
             print(f"Modelo final guardado en: {model_path}")
