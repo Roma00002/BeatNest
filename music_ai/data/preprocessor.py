@@ -80,6 +80,10 @@ class MusicPreprocessor:
         X = np.array(sequences)  # Shape: (n_sequences, sequence_length, n_mels)
         y = np.array(targets)   # Shape: (n_sequences, sequence_length, n_mels)
         
+        # Reshape to match model input shape (n_sequences, sequence_length, n_mels)
+        X = X.reshape(-1, sequence_length, spectrogram.shape[0])
+        y = y.reshape(-1, sequence_length, spectrogram.shape[0])
+        
         return X, y
 
     def load_dataset(self, audio_dir: str, sequence_length: int = 100, 
