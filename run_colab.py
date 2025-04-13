@@ -216,21 +216,28 @@ def main():
         parser = argparse.ArgumentParser(description='BeatNest - Entrenamiento y Generación de Beats')
         parser.add_argument('--mode', choices=['train', 'generate'], default='generate',
                           help='Modo de operación: train (entrenar) o generate (generar)')
+        parser.add_argument('--genre', type=str, help='Género a entrenar (ejemplo: hiphop_rap/trap)')
+        parser.add_argument('--songs_per_batch', type=int, default=10,
+                          help='Número de canciones a procesar por lote')
         args = parser.parse_args()
         
         if args.mode == 'train':
-            # Select genre
-            print("\n=== Selección de género ===")
-            print("Géneros disponibles:")
-            for genre, subgenres in GENRE_STRUCTURE.items():
-                print(f"\n{genre}:")
-                for subgenre in subgenres:
-                    print(f"  - {subgenre}")
-            
-            genre_path = input("\nIngresa el género y subgénero (ejemplo: hiphop_rap/trap): ").strip()
-            if not genre_path:
-                print("Debes especificar un género válido")
-                return
+            # Use provided genre or ask for it
+            if args.genre:
+                genre_path = args.genre
+            else:
+                # Select genre
+                print("\n=== Selección de género ===")
+                print("Géneros disponibles:")
+                for genre, subgenres in GENRE_STRUCTURE.items():
+                    print(f"\n{genre}:")
+                    for subgenre in subgenres:
+                        print(f"  - {subgenre}")
+                
+                genre_path = input("\nIngresa el género y subgénero (ejemplo: hiphop_rap/trap): ").strip()
+                if not genre_path:
+                    print("Debes especificar un género válido")
+                    return
             
             # Setup environment
             project_path = setup_environment(genre_path)
@@ -257,7 +264,7 @@ def main():
             model_weights_path = os.path.join(models_dir, 'model.weights.h5')
             
             # Process and train in smaller batches
-            batch_size = 3  # Process 3 songs at a time
+            batch_size = args.songs_per_batch  # Use provided batch size or default
             for i in range(0, len(audio_files), batch_size):
                 batch_files = audio_files[i:i + batch_size]
                 print(f"\n=== Procesando lote {i//batch_size + 1}/{(len(audio_files) + batch_size - 1)//batch_size} ===")
@@ -361,7 +368,7 @@ def main():
         else:  # generate mode
             # Create and launch Gradio interface
             interface = create_gradio_interface()
-            interface.launch()
+            interface.launch(share=True)  # Make the interface public
         
     except Exception as e:
         print(f"Error during execution: {str(e)}")
