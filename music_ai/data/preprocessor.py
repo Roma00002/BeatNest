@@ -184,4 +184,47 @@ class MusicPreprocessor:
             hop_length=512
         )
         
-        return audio 
+        return audio
+
+    def process_batch(self, audio_files: List[str]) -> Tuple[np.ndarray, np.ndarray]:
+        """Process a batch of audio files and return the sequences and targets.
+        
+        Args:
+            audio_files: List of paths to audio files
+            
+        Returns:
+            Tuple of (X, y) where:
+                X: Input sequences of shape (n_sequences, sequence_length, n_mels)
+                y: Target sequences of shape (n_sequences, sequence_length, n_mels)
+        """
+        all_sequences = []
+        all_targets = []
+        
+        for audio_file in audio_files:
+            try:
+                # Load and preprocess the audio file
+                mel_spec = self.load_audio(audio_file)
+                if mel_spec is None:
+                    continue
+                
+                # Create sequences
+                sequences, targets = self.create_sequences(mel_spec, 100)
+                all_sequences.extend(sequences)
+                all_targets.extend(targets)
+                
+                # Clear memory
+                del mel_spec, sequences, targets
+                gc.collect()
+                
+            except Exception as e:
+                print(f"Error procesando {audio_file}: {str(e)}")
+                continue
+        
+        if not all_sequences:
+            return None, None
+            
+        # Convert lists to numpy arrays
+        X = np.array(all_sequences)
+        y = np.array(all_targets)
+        
+        return X, y 
