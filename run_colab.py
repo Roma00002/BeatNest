@@ -318,30 +318,48 @@ def main():
                             print(f"Se usará la ruta predeterminada: {model_path}")
                     
                     print(f"\n=== Cargando modelo existente desde: {model_path} ===")
-                    try:
-                        # Try loading complete model first
-                        model = load_model(model_path)
-                        trainer = MusicTrainer(model=model)
-                        print("✓ Modelo cargado correctamente")
-                    except Exception as e:
-                        print(f"\n❌ Error al cargar el modelo completo: {str(e)}")
-                        
-                        # If that fails, try loading weights only
-                        if model_path.endswith('.weights.h5'):
-                            try:
-                                print("Intentando cargar solo los pesos del modelo...")
-                                trainer = MusicTrainer(input_shape=(50, 128))
-                                trainer.model.load_weights(model_path)
-                                print("✓ Pesos del modelo cargados correctamente")
-                            except Exception as e2:
-                                print(f"❌ Error al cargar los pesos: {str(e2)}")
-                                print("Inicializando nuevo modelo...")
+                    
+                    # Try loading the model in a loop to allow retries
+                    loading_success = False
+                    while not loading_success:
+                        try:
+                            # Try loading complete model first
+                            model = load_model(model_path)
+                            trainer = MusicTrainer(model=model)
+                            print("✓ Modelo cargado correctamente")
+                            loading_success = True
+                        except Exception as e:
+                            print(f"\n❌ Error al cargar el modelo completo: {str(e)}")
+                            
+                            # If that fails, try loading weights only
+                            if model_path.endswith('.weights.h5'):
+                                try:
+                                    print("Intentando cargar solo los pesos del modelo...")
+                                    trainer = MusicTrainer(input_shape=(50, 128))
+                                    trainer.model.load_weights(model_path)
+                                    print("✓ Pesos del modelo cargados correctamente")
+                                    loading_success = True
+                                    continue
+                                except Exception as e2:
+                                    print(f"❌ Error al cargar los pesos: {str(e2)}")
+                            
+                            # Ask user what to do next
+                            retry_option = input("\n¿Qué deseas hacer?\n1. Intentar con otra ruta\n2. Crear un nuevo modelo\nSelecciona una opción (1/2): ").strip()
+                            
+                            if retry_option == '1':
+                                new_path = input("\nIngresa la nueva ruta del modelo: ").strip()
+                                if os.path.exists(new_path):
+                                    model_path = new_path
+                                    print(f"\n=== Intentando cargar modelo desde: {model_path} ===")
+                                    # Continue to the next iteration of the loop
+                                else:
+                                    print(f"\n❌ No se encontró el modelo en: {new_path}")
+                                    # Ask again in the next iteration
+                            else:
+                                print("\nInicializando nuevo modelo...")
                                 trainer = MusicTrainer(input_shape=(50, 128))
                                 print("✓ Modelo inicializado correctamente")
-                        else:
-                            print("Inicializando nuevo modelo...")
-                            trainer = MusicTrainer(input_shape=(50, 128))
-                            print("✓ Modelo inicializado correctamente")
+                                loading_success = True
             
             # Initialize trainer if it doesn't exist
             if trainer is None:
