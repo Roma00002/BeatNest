@@ -8,6 +8,7 @@ from music_ai.data.genres import get_genre_path, create_genre_directories, get_g
 import gradio as gr
 import numpy as np
 from tensorflow.keras.models import load_model
+import gc
 
 def print_genre_structure(structure: dict, level: int = 0):
     """Print the genre structure in a tree-like format."""
@@ -289,37 +290,45 @@ def main():
                     trainer = MusicTrainer(model=model)
                     print("✓ Modelo cargado correctamente")
             
-            # Procesar el lote actual
-            print(f"\n=== Procesando lote {batch_num + 1} de {total_batches} ===")
-            print(f"Procesando canciones: {', '.join(batch_files)}")
+            # Process and train in batches
+            batch_size = args.songs_per_batch
+            total_batches = (len(audio_files) + batch_size - 1) // batch_size
             
-            # Procesar el lote actual
-            X, y = preprocessor.process_batch(batch_files)
-            
-            if X is not None and y is not None:
-                print(f"✓ Datos procesados correctamente")
-                print(f"✓ Forma de los datos de entrada: {X.shape}")
-                print(f"✓ Forma de los datos objetivo: {y.shape}")
+            for batch_num in range(total_batches):
+                start_idx = batch_num * batch_size
+                end_idx = min((batch_num + 1) * batch_size, len(audio_files))
+                batch_files = audio_files[start_idx:end_idx]
                 
-                # Entrenar el modelo con una sola época
-                print("\n=== Entrenando modelo ===")
-                history = trainer.train(
-                    X, y,
-                    epochs=1,  # Solo una época por lote
-                    batch_size=16,
-                    validation_split=0.2,
-                    checkpoint_dir=model_dir
-                )
+                print(f"\n=== Procesando lote {batch_num + 1} de {total_batches} ===")
+                print(f"Procesando canciones: {', '.join(batch_files)}")
                 
-                # Mostrar métricas de entrenamiento
-                print("\n=== Métricas de entrenamiento ===")
-                print(f"✓ Pérdida de entrenamiento: {history['train_loss'][-1]:.4f}")
-                print(f"✓ Pérdida de validación: {history['val_loss'][-1]:.4f}")
+                # Procesar el lote actual
+                X, y = preprocessor.process_batch(batch_files)
                 
-                # Limpiar memoria
-                del X, y
-                gc.collect()
-                print("✓ Memoria liberada")
+                if X is not None and y is not None:
+                    print(f"✓ Datos procesados correctamente")
+                    print(f"✓ Forma de los datos de entrada: {X.shape}")
+                    print(f"✓ Forma de los datos objetivo: {y.shape}")
+                    
+                    # Entrenar el modelo con una sola época
+                    print("\n=== Entrenando modelo ===")
+                    history = trainer.train(
+                        X, y,
+                        epochs=1,  # Solo una época por lote
+                        batch_size=16,
+                        validation_split=0.2,
+                        checkpoint_dir=models_dir
+                    )
+                    
+                    # Mostrar métricas de entrenamiento
+                    print("\n=== Métricas de entrenamiento ===")
+                    print(f"✓ Pérdida de entrenamiento: {history['train_loss'][-1]:.4f}")
+                    print(f"✓ Pérdida de validación: {history['val_loss'][-1]:.4f}")
+                    
+                    # Limpiar memoria
+                    del X, y
+                    gc.collect()
+                    print("✓ Memoria liberada")
             
             print("\nEntrenamiento completado exitosamente!")
             print(f"Modelo final guardado en: {model_path}")
