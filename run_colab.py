@@ -219,6 +219,7 @@ def main():
         parser.add_argument('--genre', type=str, help='Género a entrenar (ejemplo: hiphop_rap/trap)')
         parser.add_argument('--songs_per_batch', type=int, default=10,
                           help='Número de canciones a procesar por lote')
+        parser.add_argument('--model_path', type=str, help='Ruta al modelo existente para continuar entrenamiento')
         args = parser.parse_args()
         
         if args.mode == 'train':
@@ -240,7 +241,7 @@ def main():
                     return
             
             # Setup environment
-            project_path = setup_environment(genre_path)
+            project_path = get_genre_path(genre_path)
             models_dir = os.path.join(project_path, 'models')
             os.makedirs(models_dir, exist_ok=True)
             
@@ -261,10 +262,26 @@ def main():
             # Initialize preprocessor and trainer
             preprocessor = MusicPreprocessor(n_mels=128, sr=22050)
             trainer = None
-            model_weights_path = os.path.join(models_dir, 'model.weights.h5')
+            model_path = os.path.join(models_dir, 'model.h5')
+            
+            # Check if we should load an existing model
+            if args.model_path:
+                if os.path.exists(args.model_path):
+                    print(f"\n=== Cargando modelo existente desde: {args.model_path} ===")
+                    trainer = MusicTrainer.load_from_path(args.model_path)
+                    print("✓ Modelo cargado correctamente")
+                else:
+                    print(f"\n❌ No se encontró el modelo en: {args.model_path}")
+                    return
+            elif os.path.exists(model_path):
+                load_existing = input("\n¿Deseas cargar el modelo existente? (s/n): ").strip().lower()
+                if load_existing == 's':
+                    print(f"\n=== Cargando modelo existente desde: {model_path} ===")
+                    trainer = MusicTrainer.load_from_path(model_path)
+                    print("✓ Modelo cargado correctamente")
             
             # Process and train in smaller batches
-            batch_size = args.songs_per_batch  # Use provided batch size or default
+            batch_size = args.songs_per_batch
             for i in range(0, len(audio_files), batch_size):
                 batch_files = audio_files[i:i + batch_size]
                 print(f"\n=== Procesando lote {i//batch_size + 1}/{(len(audio_files) + batch_size - 1)//batch_size} ===")
@@ -308,9 +325,9 @@ def main():
                     print(f"Forma del dataset de entrada: {X.shape}")
                     print(f"Forma del dataset objetivo: {y.shape}")
                     
-                    # Initialize or load trainer
+                    # Initialize trainer if not already loaded
                     if trainer is None:
-                        print("\n=== Inicializando entrenador ===")
+                        print("\n=== Inicializando nuevo modelo ===")
                         print("Configurando el modelo con los siguientes parámetros:")
                         print(f"- Unidades LSTM: 32")
                         print(f"- Número de capas: 2")
@@ -324,17 +341,7 @@ def main():
                             dropout_rate=0.2,
                             learning_rate=0.001
                         )
-                        print("✓ Entrenador inicializado correctamente")
-                        
-                        # Try to load existing weights if they exist
-                        if os.path.exists(model_weights_path):
-                            print("\n=== Cargando pesos existentes ===")
-                            trainer.model.load_weights(model_weights_path)
-                            print("✓ Pesos cargados correctamente")
-                    else:
-                        print("\n=== Cargando modelo existente ===")
-                        trainer.model.load_weights(model_weights_path)
-                        print("✓ Modelo cargado correctamente")
+                        print("✓ Modelo inicializado correctamente")
                     
                     # Train on current batch
                     print("\n=== Iniciando entrenamiento del lote ===")
@@ -349,9 +356,8 @@ def main():
                     )
                     
                     # Save the complete model (both architecture and weights)
-                    model_path = os.path.join(models_dir, 'model.h5')
                     trainer.model.save(model_path)
-                    print(f"\n✓ Modelo completo guardado en: {model_path}")
+                    print(f"\n✓ Modelo actualizado guardado en: {model_path}")
                     print(f"Pérdida final de entrenamiento: {history['train_loss'][-1]:.4f}")
                     print(f"Pérdida final de validación: {history['val_loss'][-1]:.4f}")
                     
