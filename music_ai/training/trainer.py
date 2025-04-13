@@ -52,6 +52,13 @@ class MusicTrainer:
             # Use the provided model
             self.model = model
             self.input_shape = model.input_shape[1:]  # Extract input shape from model
+            
+            # Recompile the model to reset optimizer state
+            self.model.compile(
+                optimizer=Adam(learning_rate=self.learning_rate),
+                loss='categorical_crossentropy',
+                metrics=['accuracy']
+            )
         else:
             # Create a new model
             if input_shape is None:
