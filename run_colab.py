@@ -285,10 +285,26 @@ def main():
             elif os.path.exists(model_path):
                 load_existing = input("\n¿Deseas cargar el modelo existente? (s/n): ").strip().lower()
                 if load_existing == 's':
+                    custom_path = input("\n¿Quieres especificar una ruta diferente para el modelo? (s/n): ").strip().lower()
+                    if custom_path == 's':
+                        custom_model_path = input("\nIngresa la ruta completa del modelo: ").strip()
+                        if os.path.exists(custom_model_path):
+                            model_path = custom_model_path
+                        else:
+                            print(f"\n❌ No se encontró el modelo en: {custom_model_path}")
+                            print(f"Se usará la ruta predeterminada: {model_path}")
+                    
                     print(f"\n=== Cargando modelo existente desde: {model_path} ===")
-                    model = load_model(model_path)
-                    trainer = MusicTrainer(model=model)
-                    print("✓ Modelo cargado correctamente")
+                    try:
+                        # Try loading complete model first
+                        model = load_model(model_path)
+                        trainer = MusicTrainer(model=model)
+                        print("✓ Modelo cargado correctamente")
+                    except Exception as e:
+                        print(f"\n❌ Error al cargar el modelo: {str(e)}")
+                        print("Inicializando nuevo modelo...")
+                        trainer = MusicTrainer(input_shape=(50, 128))
+                        print("✓ Modelo inicializado correctamente")
             
             # Initialize trainer if it doesn't exist
             if trainer is None:

@@ -26,11 +26,12 @@ class MusicTrainer:
     
     def __init__(
         self,
-        input_shape: tuple,
+        input_shape: tuple = None,
         units: int = 32,
         num_layers: int = 2,
         dropout_rate: float = 0.2,
-        learning_rate: float = 0.001
+        learning_rate: float = 0.001,
+        model = None
     ):
         """Initialize the trainer with model parameters.
         
@@ -40,13 +41,23 @@ class MusicTrainer:
             num_layers: Number of LSTM layers
             dropout_rate: Dropout rate for regularization
             learning_rate: Learning rate for optimizer
+            model: An existing model to use instead of creating a new one
         """
-        self.input_shape = input_shape
         self.units = units
         self.num_layers = num_layers
         self.dropout_rate = dropout_rate
         self.learning_rate = learning_rate
-        self.model = self._build_model()
+        
+        if model is not None:
+            # Use the provided model
+            self.model = model
+            self.input_shape = model.input_shape[1:]  # Extract input shape from model
+        else:
+            # Create a new model
+            if input_shape is None:
+                raise ValueError("input_shape must be provided when not loading an existing model")
+            self.input_shape = input_shape
+            self.model = self._build_model()
     
     def _build_model(self) -> Model:
         """Build the LSTM model architecture."""
