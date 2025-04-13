@@ -81,12 +81,18 @@ class MusicGenerator:
         for _ in range(length):
             # Get the last sequence_length frames
             input_seq = current_sequence[:, -self.sequence_length:]
-            input_seq = np.expand_dims(input_seq, axis=0)
+            
+            # Reshape to match model's expected input shape (batch_size, sequence_length, features)
+            input_seq = np.expand_dims(input_seq.T, axis=0)  # Shape: (1, sequence_length, n_mels)
             
             # Generate next frame
             next_frame = self.model.predict(input_seq, verbose=0)
             next_frame = np.squeeze(next_frame)
             
+            # If next_frame is 2D (sequence_length, n_mels), take the last timestep
+            if len(next_frame.shape) > 1:
+                next_frame = next_frame[-1]
+                
             # Add to sequence
             current_sequence = np.concatenate([current_sequence, next_frame.reshape(-1, 1)], axis=1)
             generated.append(next_frame)
@@ -119,8 +125,17 @@ class MusicGenerator:
         if seed_path:
             # Load and convert seed audio to spectrogram
             seed = self.preprocessor.load_audio(seed_path)
+            
+            # Ensure seed has correct dimensions
+            if seed.shape[1] < self.sequence_length:
+                # Pad if too short
+                padding = np.zeros((seed.shape[0], self.sequence_length - seed.shape[1]))
+                seed = np.concatenate([seed, padding], axis=1)
+            elif seed.shape[1] > self.sequence_length:
+                # Trim if too long
+                seed = seed[:, :self.sequence_length]
         else:
-            # Generate random seed
+            # Generate random seed (n_mels x sequence_length)
             seed = np.random.rand(self.preprocessor.n_mels, self.sequence_length)
         
         # Generate sequence
