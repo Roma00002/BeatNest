@@ -290,6 +290,12 @@ def main():
                     trainer = MusicTrainer(model=model)
                     print("✓ Modelo cargado correctamente")
             
+            # Initialize trainer if it doesn't exist
+            if trainer is None:
+                print("\n=== Inicializando nuevo modelo ===")
+                trainer = MusicTrainer(input_shape=(128, 50))
+                print("✓ Modelo inicializado correctamente")
+            
             # Process and train in batches
             batch_size = args.songs_per_batch
             total_batches = (len(audio_files) + batch_size - 1) // batch_size
