@@ -68,15 +68,19 @@ class MusicPreprocessor:
         
         # Create overlapping sequences
         for i in range(len(spectrogram[0]) - sequence_length):
-            # Input sequence
-            sequence = spectrogram[:, i:i + sequence_length].T  # Transpose to get (sequence_length, n_mels)
+            # Input sequence (shape: sequence_length x n_mels)
+            sequence = spectrogram[:, i:i + sequence_length].T
             sequences.append(sequence)
             
-            # Target sequence (shifted by 1)
-            target = spectrogram[:, i + 1:i + sequence_length + 1].T  # Transpose to get (sequence_length, n_mels)
+            # Target sequence (shape: sequence_length x n_mels)
+            target = spectrogram[:, i + 1:i + sequence_length + 1].T
             targets.append(target)
         
-        return np.array(sequences), np.array(targets)
+        # Convert to numpy arrays and reshape to match model input
+        X = np.array(sequences)  # Shape: (n_sequences, sequence_length, n_mels)
+        y = np.array(targets)   # Shape: (n_sequences, sequence_length, n_mels)
+        
+        return X, y
 
     def load_dataset(self, audio_dir: str, sequence_length: int = 100, 
                     batch_size: int = 3, specific_files: List[str] = None) -> Tuple[np.ndarray, np.ndarray]:
