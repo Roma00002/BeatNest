@@ -348,7 +348,10 @@ def main():
                         checkpoint_dir=models_dir
                     )
                     
-                    print(f"\n✓ Modelo actualizado guardado en: {model_weights_path}")
+                    # Save the complete model (both architecture and weights)
+                    model_path = os.path.join(models_dir, 'model.h5')
+                    trainer.model.save(model_path)
+                    print(f"\n✓ Modelo completo guardado en: {model_path}")
                     print(f"Pérdida final de entrenamiento: {history['train_loss'][-1]:.4f}")
                     print(f"Pérdida final de validación: {history['val_loss'][-1]:.4f}")
                     
@@ -363,7 +366,7 @@ def main():
                     continue
             
             print("\nEntrenamiento completado exitosamente!")
-            print(f"Modelo final guardado en: {model_weights_path}")
+            print(f"Modelo final guardado en: {model_path}")
         
         else:  # generate mode
             # Create and launch Gradio interface
