@@ -375,15 +375,16 @@ def main():
             batch_size = args.songs_per_batch
             total_batches = (len(audio_files) + batch_size - 1) // batch_size
             
+            # Loop through all batches
             for batch_num in range(total_batches):
                 start_idx = batch_num * batch_size
                 end_idx = min((batch_num + 1) * batch_size, len(audio_files))
                 batch_files = audio_files[start_idx:end_idx]
                 
                 print(f"\n=== Procesando lote {batch_num + 1} de {total_batches} ===")
-                print(f"Procesando canciones: {', '.join(batch_files)}")
+                print(f"Procesando canciones: {', '.join(os.path.basename(f) for f in batch_files)}")
                 
-                # Procesar el lote actual
+                # Process current batch to get training data
                 X, y = preprocessor.process_batch(batch_files)
                 
                 if X is not None and y is not None:
@@ -391,28 +392,30 @@ def main():
                     print(f"✓ Forma de los datos de entrada: {X.shape}")
                     print(f"✓ Forma de los datos objetivo: {y.shape}")
                     
-                    # Entrenar el modelo con una sola época
+                    # Train the model for one epoch on this batch
                     print("\n=== Entrenando modelo ===")
                     history = trainer.train(
                         X, y,
-                        epochs=1,  # Solo una época por lote
+                        epochs=1,  # Train for just one epoch per batch
                         batch_size=16,
                         validation_split=0.2,
                         checkpoint_dir=models_dir
                     )
                     
-                    # Mostrar métricas de entrenamiento
+                    # Display training metrics
                     print("\n=== Métricas de entrenamiento ===")
                     print(f"✓ Pérdida de entrenamiento: {history['train_loss'][-1]:.4f}")
                     print(f"✓ Pérdida de validación: {history['val_loss'][-1]:.4f}")
                     
-                    # Limpiar memoria
+                    # Clean up memory
                     del X, y
                     gc.collect()
                     print("✓ Memoria liberada")
+                else:
+                    print("❌ No se pudieron procesar las canciones en este lote")
             
-            print("\nEntrenamiento completado exitosamente!")
-            print(f"Modelo final guardado en: {model_path}")
+            print("\n=== Entrenamiento completado exitosamente! ===")
+            print(f"El modelo final se guardó en: {models_dir}")
         
         else:  # generate mode
             # Create and launch Gradio interface
