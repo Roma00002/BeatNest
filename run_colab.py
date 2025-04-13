@@ -7,6 +7,7 @@ from music_ai.data.preprocessor import MusicPreprocessor
 from music_ai.data.genres import get_genre_path, create_genre_directories, get_genre_name, GENRE_STRUCTURE
 import gradio as gr
 import numpy as np
+from tensorflow.keras.models import load_model
 
 def print_genre_structure(structure: dict, level: int = 0):
     """Print the genre structure in a tree-like format."""
@@ -268,7 +269,8 @@ def main():
             if args.model_path:
                 if os.path.exists(args.model_path):
                     print(f"\n=== Cargando modelo existente desde: {args.model_path} ===")
-                    trainer = MusicTrainer.load_from_path(args.model_path)
+                    model = load_model(args.model_path)
+                    trainer = MusicTrainer(model=model)
                     print("✓ Modelo cargado correctamente")
                 else:
                     print(f"\n❌ No se encontró el modelo en: {args.model_path}")
@@ -277,7 +279,8 @@ def main():
                 load_existing = input("\n¿Deseas cargar el modelo existente? (s/n): ").strip().lower()
                 if load_existing == 's':
                     print(f"\n=== Cargando modelo existente desde: {model_path} ===")
-                    trainer = MusicTrainer.load_from_path(model_path)
+                    model = load_model(model_path)
+                    trainer = MusicTrainer(model=model)
                     print("✓ Modelo cargado correctamente")
             
             # Process and train in smaller batches
@@ -324,24 +327,6 @@ def main():
                     print(f"\n✓ Lote procesado exitosamente!")
                     print(f"Forma del dataset de entrada: {X.shape}")
                     print(f"Forma del dataset objetivo: {y.shape}")
-                    
-                    # Initialize trainer if not already loaded
-                    if trainer is None:
-                        print("\n=== Inicializando nuevo modelo ===")
-                        print("Configurando el modelo con los siguientes parámetros:")
-                        print(f"- Unidades LSTM: 32")
-                        print(f"- Número de capas: 2")
-                        print(f"- Tasa de dropout: 0.2")
-                        print(f"- Tasa de aprendizaje: 0.001")
-                        
-                        trainer = MusicTrainer(
-                            input_shape=(X.shape[1], X.shape[2]),
-                            units=32,
-                            num_layers=2,
-                            dropout_rate=0.2,
-                            learning_rate=0.001
-                        )
-                        print("✓ Modelo inicializado correctamente")
                     
                     # Train on current batch
                     print("\n=== Iniciando entrenamiento del lote ===")
