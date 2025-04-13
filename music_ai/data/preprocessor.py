@@ -207,8 +207,8 @@ class MusicPreprocessor:
                 if mel_spec is None:
                     continue
                 
-                # Create sequences
-                sequences, targets = self.create_sequences(mel_spec, 100)
+                # Create sequences with length 50 to match model input shape
+                sequences, targets = self.create_sequences(mel_spec, sequence_length=50)
                 all_sequences.extend(sequences)
                 all_targets.extend(targets)
                 
