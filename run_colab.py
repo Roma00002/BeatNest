@@ -35,49 +35,46 @@ def select_genre() -> str:
             return genre_path
         print("❌ Género no válido. Por favor, usa el formato correcto.")
 
-def setup_environment(genre_path: str) -> str:
-    """
-    Setup the environment for training a specific genre.
+def setup_environment(genre_path: str = None) -> str:
+    """Setup the environment for training or generation."""
+    # Create necessary directories
+    os.makedirs('mp3_files', exist_ok=True)
+    os.makedirs('checkpoints', exist_ok=True)
     
-    Args:
-        genre_path (str): Path to the genre (e.g., 'hiphop_rap/trap')
-        
-    Returns:
-        str: Path to the genre directory
-    """
-    # Create base directories
-    base_dir = 'generos'
-    genre_dir = os.path.join(base_dir, genre_path)
+    # Create genre directories if specified
+    if genre_path:
+        project_path = get_genre_path(genre_path)
+        create_genre_directories(project_path)
+        print(f"\n=== Directorios creados ===")
+        print(f"Ruta del proyecto: {project_path}")
+        print(f"Ruta de modelos: {os.path.join(project_path, 'models')}")
+        print(f"Ruta de audio: {os.path.join(project_path, 'audio')}")
+        return project_path
     
-    # Create directory structure
-    os.makedirs(os.path.join(genre_dir, 'models'), exist_ok=True)
-    os.makedirs(os.path.join(genre_dir, 'audio'), exist_ok=True)
-    
-    print(f"\nEstructura de directorios creada en: {genre_dir}")
-    print(f"- Modelos: {os.path.join(genre_dir, 'models')}")
-    print(f"- Audio: {os.path.join(genre_dir, 'audio')}")
-    
-    return genre_dir
+    return None
 
-def find_audio_files(audio_path: str):
+def find_audio_files(audio_path: str = None) -> list:
     """Find audio files in the specified directory."""
-    if not os.path.exists(audio_path):
-        print(f"❌ La ruta no existe: {audio_path}")
-        return None
+    if not audio_path:
+        audio_path = 'mp3_files'
     
+    # Check if directory exists
+    if not os.path.exists(audio_path):
+        print(f"El directorio {audio_path} no existe")
+        print("Por favor, crea el directorio y sube tus archivos MP3")
+        return []
+    
+    # Find audio files
     audio_files = []
     for file in os.listdir(audio_path):
         if file.endswith(('.mp3', '.wav', '.ogg')):
             audio_files.append(os.path.join(audio_path, file))
     
     if not audio_files:
-        print(f"❌ No se encontraron archivos de audio en: {audio_path}")
-        print("Asegúrate de que los archivos tengan extensión .mp3, .wav o .ogg")
-        return None
-    
-    print(f"\n✓ Encontrados {len(audio_files)} archivos de audio:")
-    for file in audio_files:
-        print(f"- {os.path.basename(file)}")
+        print(f"No se encontraron archivos de audio en {audio_path}")
+        print("Por favor, sube tus archivos MP3 a la carpeta")
+        print("En Google Colab, puedes usar el siguiente comando:")
+        print("!cp /content/drive/MyDrive/tus_archivos/*.mp3 mp3_files/")
     
     return audio_files
 
@@ -90,17 +87,17 @@ def get_available_genres():
                 if 'subgenres' in subgenre_data:
                     for subsubgenre_key, subsubgenre_data in subgenre_data['subgenres'].items():
                         path = f"{genre_key}/{subgenre_key}/{subsubgenre_key}"
-                        model_path = os.path.join('generos', path, 'models', 'model.h5')
+                        model_path = os.path.join('generos', path, 'models', 'model.weights.h5')
                         if os.path.exists(model_path):
                             genres.append((path, get_genre_name(path)))
                 else:
                     path = f"{genre_key}/{subgenre_key}"
-                    model_path = os.path.join('generos', path, 'models', 'model.h5')
+                    model_path = os.path.join('generos', path, 'models', 'model.weights.h5')
                     if os.path.exists(model_path):
                         genres.append((path, get_genre_name(path)))
         else:
             path = genre_key
-            model_path = os.path.join('generos', path, 'models', 'model.h5')
+            model_path = os.path.join('generos', path, 'models', 'model.weights.h5')
             if os.path.exists(model_path):
                 genres.append((path, get_genre_name(path)))
     return genres
@@ -110,7 +107,7 @@ def generate_beat(genre_path: str, length: int = 100, temperature: float = 1.0):
     from music_ai.generation.generator import MusicGenerator
     
     # Get model path for the selected genre
-    model_path = os.path.join('generos', genre_path, 'models', 'model.h5')
+    model_path = os.path.join('generos', genre_path, 'models', 'model.weights.h5')
     if not os.path.exists(model_path):
         return None, f"❌ No se encontró el modelo para el género {get_genre_name(genre_path)}"
     
@@ -215,148 +212,160 @@ def main():
                 # If memory growth is not supported, just continue
                 pass
         
-        # Select genre
-        print("\n=== Selección de género ===")
-        print("Géneros disponibles:")
-        for genre, subgenres in GENRE_STRUCTURE.items():
-            print(f"\n{genre}:")
-            for subgenre in subgenres:
-                print(f"  - {subgenre}")
+        # Parse command line arguments
+        parser = argparse.ArgumentParser(description='BeatNest - Entrenamiento y Generación de Beats')
+        parser.add_argument('--mode', choices=['train', 'generate'], default='generate',
+                          help='Modo de operación: train (entrenar) o generate (generar)')
+        args = parser.parse_args()
         
-        genre_path = input("\nIngresa el género y subgénero (ejemplo: hiphop_rap/trap): ").strip()
-        if not genre_path:
-            print("Debes especificar un género válido")
-            return
-        
-        # Setup environment
-        project_path = setup_environment(genre_path)
-        models_dir = os.path.join(project_path, 'models')
-        os.makedirs(models_dir, exist_ok=True)
-        
-        # Ask for audio files path
-        print("\n=== Buscando archivos de audio ===")
-        audio_path = input("\nIngresa la ruta donde están tus archivos MP3: ").strip()
-        audio_files = find_audio_files(audio_path)
-        if not audio_files:
-            print(f"No se encontraron archivos de audio en {audio_path}")
-            print("Por favor, sube tus archivos MP3 a la carpeta correspondiente")
-            return
-        
-        print(f"\nEncontrados {len(audio_files)} archivos de audio")
-        print("Archivos encontrados:")
-        for file in audio_files:
-            print(f"- {file}")
-        
-        # Initialize preprocessor and trainer
-        preprocessor = MusicPreprocessor(n_mels=128, sr=22050)
-        trainer = None
-        model_weights_path = os.path.join(models_dir, 'model.weights.h5')
-        
-        # Process and train in smaller batches
-        batch_size = 3  # Process 3 songs at a time
-        for i in range(0, len(audio_files), batch_size):
-            batch_files = audio_files[i:i + batch_size]
-            print(f"\n=== Procesando lote {i//batch_size + 1}/{(len(audio_files) + batch_size - 1)//batch_size} ===")
-            print(f"Procesando {len(batch_files)} canciones...")
+        if args.mode == 'train':
+            # Select genre
+            print("\n=== Selección de género ===")
+            print("Géneros disponibles:")
+            for genre, subgenres in GENRE_STRUCTURE.items():
+                print(f"\n{genre}:")
+                for subgenre in subgenres:
+                    print(f"  - {subgenre}")
             
-            try:
-                # Process batch of songs (1 at a time to manage memory)
-                all_sequences = []
-                all_targets = []
+            genre_path = input("\nIngresa el género y subgénero (ejemplo: hiphop_rap/trap): ").strip()
+            if not genre_path:
+                print("Debes especificar un género válido")
+                return
+            
+            # Setup environment
+            project_path = setup_environment(genre_path)
+            models_dir = os.path.join(project_path, 'models')
+            os.makedirs(models_dir, exist_ok=True)
+            
+            # Ask for audio files path
+            print("\n=== Buscando archivos de audio ===")
+            audio_path = input("\nIngresa la ruta donde están tus archivos MP3: ").strip()
+            audio_files = find_audio_files(audio_path)
+            if not audio_files:
+                print(f"No se encontraron archivos de audio en {audio_path}")
+                print("Por favor, sube tus archivos MP3 a la carpeta correspondiente")
+                return
+            
+            print(f"\nEncontrados {len(audio_files)} archivos de audio")
+            print("Archivos encontrados:")
+            for file in audio_files:
+                print(f"- {file}")
+            
+            # Initialize preprocessor and trainer
+            preprocessor = MusicPreprocessor(n_mels=128, sr=22050)
+            trainer = None
+            model_weights_path = os.path.join(models_dir, 'model.weights.h5')
+            
+            # Process and train in smaller batches
+            batch_size = 3  # Process 3 songs at a time
+            for i in range(0, len(audio_files), batch_size):
+                batch_files = audio_files[i:i + batch_size]
+                print(f"\n=== Procesando lote {i//batch_size + 1}/{(len(audio_files) + batch_size - 1)//batch_size} ===")
+                print(f"Procesando {len(batch_files)} canciones...")
                 
-                for audio_file in batch_files:
-                    print(f"\nProcesando: {audio_file}")
+                try:
+                    # Process batch of songs (1 at a time to manage memory)
+                    all_sequences = []
+                    all_targets = []
                     
-                    # Clear memory before processing
-                    import gc
-                    gc.collect()
-                    
-                    try:
-                        X, y = preprocessor.load_dataset(
-                            audio_path,
-                            sequence_length=50,
-                            batch_size=4,
-                            specific_files=[audio_file]
-                        )
-                        all_sequences.extend(X)
-                        all_targets.extend(y)
+                    for audio_file in batch_files:
+                        print(f"\nProcesando: {audio_file}")
                         
-                        # Clear memory after processing
-                        del X, y
+                        # Clear memory before processing
+                        import gc
                         gc.collect()
                         
-                    except Exception as e:
-                        print(f"Error procesando {audio_file}: {str(e)}")
-                        continue
-                
-                # Convert lists to numpy arrays
-                X = np.array(all_sequences)
-                y = np.array(all_targets)
-                
-                print(f"\n✓ Lote procesado exitosamente!")
-                print(f"Forma del dataset de entrada: {X.shape}")
-                print(f"Forma del dataset objetivo: {y.shape}")
-                
-                # Initialize or load trainer
-                if trainer is None:
-                    print("\n=== Inicializando entrenador ===")
-                    print("Configurando el modelo con los siguientes parámetros:")
-                    print(f"- Unidades LSTM: 32")
-                    print(f"- Número de capas: 2")
-                    print(f"- Tasa de dropout: 0.2")
-                    print(f"- Tasa de aprendizaje: 0.001")
+                        try:
+                            X, y = preprocessor.load_dataset(
+                                audio_path,
+                                sequence_length=50,
+                                batch_size=4,
+                                specific_files=[audio_file]
+                            )
+                            all_sequences.extend(X)
+                            all_targets.extend(y)
+                            
+                            # Clear memory after processing
+                            del X, y
+                            gc.collect()
+                            
+                        except Exception as e:
+                            print(f"Error procesando {audio_file}: {str(e)}")
+                            continue
                     
-                    trainer = MusicTrainer(
-                        input_shape=(X.shape[1], X.shape[2]),
-                        units=32,
-                        num_layers=2,
-                        dropout_rate=0.2,
-                        learning_rate=0.001
-                    )
-                    print("✓ Entrenador inicializado correctamente")
+                    # Convert lists to numpy arrays
+                    X = np.array(all_sequences)
+                    y = np.array(all_targets)
                     
-                    # Try to load existing weights if they exist
-                    if os.path.exists(model_weights_path):
-                        print("\n=== Cargando pesos existentes ===")
+                    print(f"\n✓ Lote procesado exitosamente!")
+                    print(f"Forma del dataset de entrada: {X.shape}")
+                    print(f"Forma del dataset objetivo: {y.shape}")
+                    
+                    # Initialize or load trainer
+                    if trainer is None:
+                        print("\n=== Inicializando entrenador ===")
+                        print("Configurando el modelo con los siguientes parámetros:")
+                        print(f"- Unidades LSTM: 32")
+                        print(f"- Número de capas: 2")
+                        print(f"- Tasa de dropout: 0.2")
+                        print(f"- Tasa de aprendizaje: 0.001")
+                        
+                        trainer = MusicTrainer(
+                            input_shape=(X.shape[1], X.shape[2]),
+                            units=32,
+                            num_layers=2,
+                            dropout_rate=0.2,
+                            learning_rate=0.001
+                        )
+                        print("✓ Entrenador inicializado correctamente")
+                        
+                        # Try to load existing weights if they exist
+                        if os.path.exists(model_weights_path):
+                            print("\n=== Cargando pesos existentes ===")
+                            trainer.model.load_weights(model_weights_path)
+                            print("✓ Pesos cargados correctamente")
+                    else:
+                        print("\n=== Cargando modelo existente ===")
                         trainer.model.load_weights(model_weights_path)
-                        print("✓ Pesos cargados correctamente")
-                else:
-                    print("\n=== Cargando modelo existente ===")
-                    trainer.model.load_weights(model_weights_path)
-                    print("✓ Modelo cargado correctamente")
-                
-                # Train on current batch
-                print("\n=== Iniciando entrenamiento del lote ===")
-                print(f"Entrenando con {len(batch_files)} canciones...")
-                
-                history = trainer.train(
-                    X, y,
-                    epochs=20,
-                    batch_size=4,
-                    validation_split=0.2,
-                    checkpoint_dir=models_dir
-                )
-                
-                print(f"\n✓ Modelo actualizado guardado en: {model_weights_path}")
-                print(f"Pérdida final de entrenamiento: {history['train_loss'][-1]:.4f}")
-                print(f"Pérdida final de validación: {history['val_loss'][-1]:.4f}")
-                
-                # Clear memory after training
-                del X, y, history
-                gc.collect()
-                
-            except Exception as e:
-                print(f"\nError durante el procesamiento del lote: {str(e)}")
-                import traceback
-                traceback.print_exc()
-                continue
+                        print("✓ Modelo cargado correctamente")
+                    
+                    # Train on current batch
+                    print("\n=== Iniciando entrenamiento del lote ===")
+                    print(f"Entrenando con {len(batch_files)} canciones...")
+                    
+                    history = trainer.train(
+                        X, y,
+                        epochs=20,
+                        batch_size=4,
+                        validation_split=0.2,
+                        checkpoint_dir=models_dir
+                    )
+                    
+                    print(f"\n✓ Modelo actualizado guardado en: {model_weights_path}")
+                    print(f"Pérdida final de entrenamiento: {history['train_loss'][-1]:.4f}")
+                    print(f"Pérdida final de validación: {history['val_loss'][-1]:.4f}")
+                    
+                    # Clear memory after training
+                    del X, y, history
+                    gc.collect()
+                    
+                except Exception as e:
+                    print(f"\nError durante el procesamiento del lote: {str(e)}")
+                    import traceback
+                    traceback.print_exc()
+                    continue
+            
+            print("\nEntrenamiento completado exitosamente!")
+            print(f"Modelo final guardado en: {model_weights_path}")
         
-        print("\nEntrenamiento completado exitosamente!")
-        print(f"Modelo final guardado en: {model_weights_path}")
+        else:  # generate mode
+            # Create and launch Gradio interface
+            interface = create_gradio_interface()
+            interface.launch()
         
     except Exception as e:
-        print(f"Error during training: {str(e)}")
+        print(f"Error during execution: {str(e)}")
         raise
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main() 
