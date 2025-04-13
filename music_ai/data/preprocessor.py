@@ -52,24 +52,28 @@ class MusicPreprocessor:
         return mel_spec
 
     def create_sequences(self, spectrogram: np.ndarray, sequence_length: int) -> Tuple[np.ndarray, np.ndarray]:
-        """
-        Create input and target sequences from a spectrogram.
+        """Create input and target sequences from a spectrogram.
         
         Args:
-            spectrogram (np.ndarray): Mel spectrogram of the audio
-            sequence_length (int): Length of input sequences
+            spectrogram: Mel spectrogram of shape (n_mels, time_steps)
+            sequence_length: Length of input sequences
             
         Returns:
-            Tuple[np.ndarray, np.ndarray]: Input and target sequences
+            Tuple of (X, y) where:
+                X: Input sequences of shape (n_sequences, sequence_length, n_mels)
+                y: Target sequences of shape (n_sequences, sequence_length, n_mels)
         """
         sequences = []
         targets = []
         
         # Create overlapping sequences
         for i in range(len(spectrogram[0]) - sequence_length):
-            sequence = spectrogram[:, i:i + sequence_length]
-            target = spectrogram[:, i + sequence_length]
+            # Input sequence
+            sequence = spectrogram[:, i:i + sequence_length].T  # Transpose to get (sequence_length, n_mels)
             sequences.append(sequence)
+            
+            # Target sequence (shifted by 1)
+            target = spectrogram[:, i + 1:i + sequence_length + 1].T  # Transpose to get (sequence_length, n_mels)
             targets.append(target)
         
         return np.array(sequences), np.array(targets)
