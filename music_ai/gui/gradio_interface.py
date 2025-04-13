@@ -30,14 +30,21 @@ def get_available_genres():
 
 def generate_beat(genre_path: str, length: int = 100, temperature: float = 1.0):
     """Generate a beat using the selected genre's model."""
-    # Get model path for the selected genre
+    # Check for both model file types
     model_path = os.path.join('generos', genre_path, 'models', 'model.h5')
-    if not os.path.exists(model_path):
+    model_weights_path = os.path.join('generos', genre_path, 'models', 'model.weights.h5')
+    
+    # Determine which model file to use
+    if os.path.exists(model_path):
+        use_model_path = model_path
+    elif os.path.exists(model_weights_path):
+        use_model_path = model_weights_path
+    else:
         return None, f"❌ No se encontró el modelo para el género {get_genre_name(genre_path)}"
     
     try:
         # Initialize generator with the genre-specific model
-        generator = MusicGenerator(model_path=model_path)
+        generator = MusicGenerator(model_path=use_model_path)
         
         # Generate beat
         output_path = f"generated/{genre_path.replace('/', '_')}_beat.wav"

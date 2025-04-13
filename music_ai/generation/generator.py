@@ -15,8 +15,49 @@ class MusicGenerator:
         """
         self.preprocessor = MusicPreprocessor()
         self.model = None
+        
         if model_path and os.path.exists(model_path):
-            self.model = tf.keras.models.load_model(model_path)
+            try:
+                # Try loading the complete model
+                self.model = tf.keras.models.load_model(model_path)
+            except Exception as e:
+                print(f"Error loading complete model: {str(e)}")
+                
+                # If it's a weights file, we need to create a model first and then load the weights
+                if model_path.endswith('.weights.h5'):
+                    try:
+                        from music_ai.training.trainer import MusicTrainer
+                        # Create a new model with the same architecture
+                        trainer = MusicTrainer(input_shape=(50, 128))
+                        self.model = trainer.model
+                        # Load weights
+                        self.model.load_weights(model_path)
+                        print("Successfully loaded model weights")
+                    except Exception as e2:
+                        print(f"Error loading model weights: {str(e2)}")
+                        
+                # Also try alternative model paths
+                else:
+                    # Try .h5 extension if not already tried
+                    alt_path = model_path.replace('.weights.h5', '.h5')
+                    if os.path.exists(alt_path):
+                        try:
+                            self.model = tf.keras.models.load_model(alt_path)
+                            print(f"Loaded model from alternative path: {alt_path}")
+                        except Exception:
+                            pass
+                    
+                    # Try .weights.h5 extension if not already tried
+                    alt_path = model_path.replace('.h5', '.weights.h5')
+                    if os.path.exists(alt_path) and not model_path.endswith('.weights.h5'):
+                        try:
+                            from music_ai.training.trainer import MusicTrainer
+                            trainer = MusicTrainer(input_shape=(50, 128))
+                            self.model = trainer.model
+                            self.model.load_weights(alt_path)
+                            print(f"Loaded weights from alternative path: {alt_path}")
+                        except Exception:
+                            pass
 
     def generate_sequence(self, seed: np.ndarray, length: int = 100) -> np.ndarray:
         """
