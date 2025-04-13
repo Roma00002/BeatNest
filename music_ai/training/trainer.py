@@ -60,8 +60,8 @@ class MusicTrainer:
             # Second LSTM layer
             LSTM(32, return_sequences=True, dropout=0.2),
             
-            # Output layer
-            TimeDistributed(Dense(self.input_shape[0], activation='softmax'))
+            # Output layer - use input_shape[1] for the output dimension to match the target shape
+            TimeDistributed(Dense(self.input_shape[1], activation='softmax'))
         ])
         
         # Compile model
