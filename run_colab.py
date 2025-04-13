@@ -202,6 +202,9 @@ def main():
         os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
         import tensorflow as tf
         
+        # Enable eager execution
+        tf.config.run_functions_eagerly(True)
+        
         # Configure TensorFlow to use CPU
         tf.config.set_soft_device_placement(True)
         physical_devices = tf.config.list_physical_devices('CPU')
