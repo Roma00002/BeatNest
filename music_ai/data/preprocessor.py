@@ -221,6 +221,11 @@ class MusicPreprocessor:
                 
                 # Create sequences with length 50 to match model input shape
                 sequences, targets = self.create_sequences(mel_spec, sequence_length=50)
+                
+                # Ensure correct shape (n_sequences, sequence_length, n_mels)
+                sequences = sequences.reshape(-1, 50, self.n_mels)
+                targets = targets.reshape(-1, 50, self.n_mels)
+                
                 all_sequences.extend(sequences)
                 all_targets.extend(targets)
                 
@@ -238,5 +243,9 @@ class MusicPreprocessor:
         # Convert lists to numpy arrays
         X = np.array(all_sequences)
         y = np.array(all_targets)
+        
+        # Ensure final shape is correct
+        X = X.reshape(-1, 50, self.n_mels)
+        y = y.reshape(-1, 50, self.n_mels)
         
         return X, y 
