@@ -275,7 +275,7 @@ def main():
                         model = load_model(args.model_path)
                     except ValueError:
                         # If that fails, try loading weights
-                        model = MusicTrainer(input_shape=(128, 50)).model
+                        model = MusicTrainer(input_shape=(50, 128)).model
                         model.load_weights(args.model_path)
                     trainer = MusicTrainer(model=model)
                     print("✓ Modelo cargado correctamente")
@@ -293,7 +293,8 @@ def main():
             # Initialize trainer if it doesn't exist
             if trainer is None:
                 print("\n=== Inicializando nuevo modelo ===")
-                trainer = MusicTrainer(input_shape=(128, 50))
+                # Use (50, 128) for input shape to match the processed data
+                trainer = MusicTrainer(input_shape=(50, 128))
                 print("✓ Modelo inicializado correctamente")
             
             # Process and train in batches
