@@ -66,8 +66,14 @@ class MusicPreprocessor:
         sequences = []
         targets = []
         
-        # Create overlapping sequences
-        for i in range(len(spectrogram[0]) - sequence_length):
+        # Calculate total possible sequences
+        total_steps = len(spectrogram[0]) - sequence_length
+        
+        # If there are too many steps, use a stride to reduce the number of sequences
+        stride = max(1, total_steps // 500)  # Aim for about 500 sequences per song
+        
+        # Create sequences with stride to reduce the total amount
+        for i in range(0, total_steps, stride):
             # Input sequence (shape: sequence_length x n_mels)
             sequence = spectrogram[:, i:i + sequence_length].T
             sequences.append(sequence)
@@ -79,10 +85,6 @@ class MusicPreprocessor:
         # Convert to numpy arrays and reshape to match model input
         X = np.array(sequences)  # Shape: (n_sequences, sequence_length, n_mels)
         y = np.array(targets)   # Shape: (n_sequences, sequence_length, n_mels)
-        
-        # Reshape to match model input shape (n_sequences, sequence_length, n_mels)
-        X = X.reshape(-1, sequence_length, spectrogram.shape[0])
-        y = y.reshape(-1, sequence_length, spectrogram.shape[0])
         
         return X, y
 

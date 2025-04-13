@@ -392,6 +392,14 @@ def main():
                     print(f"✓ Forma de los datos de entrada: {X.shape}")
                     print(f"✓ Forma de los datos objetivo: {y.shape}")
                     
+                    # Limit the number of sequences to avoid excessive training time
+                    max_sequences = 1000  # Limit to 1000 sequences per batch
+                    if X.shape[0] > max_sequences:
+                        print(f"\n⚠️ Limitando número de secuencias de {X.shape[0]} a {max_sequences} para reducir tiempo de entrenamiento")
+                        indices = np.random.choice(X.shape[0], max_sequences, replace=False)
+                        X = X[indices]
+                        y = y[indices]
+                    
                     # Train the model for one epoch on this batch
                     print("\n=== Entrenando modelo ===")
                     history = trainer.train(
