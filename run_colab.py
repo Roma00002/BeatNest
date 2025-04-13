@@ -269,7 +269,13 @@ def main():
             if args.model_path:
                 if os.path.exists(args.model_path):
                     print(f"\n=== Cargando modelo existente desde: {args.model_path} ===")
-                    model = load_model(args.model_path)
+                    try:
+                        # Try loading complete model first
+                        model = load_model(args.model_path)
+                    except ValueError:
+                        # If that fails, try loading weights
+                        model = MusicTrainer(input_shape=(128, 50)).model
+                        model.load_weights(args.model_path)
                     trainer = MusicTrainer(model=model)
                     print("✓ Modelo cargado correctamente")
                 else:

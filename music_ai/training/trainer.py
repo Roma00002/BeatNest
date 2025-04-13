@@ -81,51 +81,46 @@ class MusicTrainer:
         self,
         X: np.ndarray,
         y: np.ndarray,
-        epochs: int = 20,
-        batch_size: int = 4,
+        epochs: int = 50,
+        batch_size: int = 16,
         validation_split: float = 0.2,
         checkpoint_dir: str = None
     ) -> dict:
-        """Train the model on the provided data.
-        
-        Args:
-            X: Input data
-            y: Target data
-            epochs: Number of training epochs
-            batch_size: Batch size for training
-            validation_split: Fraction of data to use for validation
-            checkpoint_dir: Directory to save checkpoints
-            
-        Returns:
-            Dictionary containing training history
-        """
-        # Create checkpoint directory if specified
+        """Train the model on the given data."""
         if checkpoint_dir:
             os.makedirs(checkpoint_dir, exist_ok=True)
-            checkpoint_path = os.path.join(checkpoint_dir, 'checkpoint.weights.h5')
+            checkpoint_path = os.path.join(checkpoint_dir, 'model.weights.h5')
+            model_path = os.path.join(checkpoint_dir, 'model.h5')
             
-            # Callback to save best model
-            checkpoint_callback = ModelCheckpoint(
-                filepath=checkpoint_path,
+            # Save complete model
+            self.model.save(model_path)
+            
+            # Save weights
+            self.model.save_weights(checkpoint_path)
+            
+            # Create checkpoint callback
+            checkpoint = ModelCheckpoint(
+                checkpoint_path,
                 monitor='val_loss',
                 save_best_only=True,
                 save_weights_only=True,
+                mode='min',
                 verbose=1
             )
             
-            # Early stopping to prevent overfitting
+            # Create early stopping callback
             early_stopping = EarlyStopping(
                 monitor='val_loss',
-                patience=2,
+                patience=5,
                 restore_best_weights=True,
                 verbose=1
             )
             
-            callbacks = [checkpoint_callback, early_stopping]
+            callbacks = [checkpoint, early_stopping]
         else:
             callbacks = []
         
-        # Train model with reduced batch size
+        # Train the model
         history = self.model.fit(
             X, y,
             epochs=epochs,
@@ -134,11 +129,6 @@ class MusicTrainer:
             callbacks=callbacks,
             verbose=1
         )
-        
-        # Save final model weights if checkpoint directory provided
-        if checkpoint_dir:
-            final_model_path = os.path.join(checkpoint_dir, 'model.weights.h5')
-            self.model.save_weights(final_model_path)
         
         return {
             'train_loss': history.history['loss'],
