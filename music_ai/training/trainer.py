@@ -48,9 +48,9 @@ class MusicTrainer:
         self.learning_rate = learning_rate
         self.model = self._build_model()
     
-    def _build_model(self) -> None:
+    def _build_model(self) -> Model:
         """Build the LSTM model architecture."""
-        self.model = Sequential([
+        model = Sequential([
             # Input layer
             Input(shape=self.input_shape),
             
@@ -65,11 +65,13 @@ class MusicTrainer:
         ])
         
         # Compile model
-        self.model.compile(
+        model.compile(
             optimizer=Adam(learning_rate=self.learning_rate),
             loss='categorical_crossentropy',
             metrics=['accuracy']
         )
+        
+        return model
     
     def train(
         self,
