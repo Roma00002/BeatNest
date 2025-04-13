@@ -287,7 +287,30 @@ def main():
                 if load_existing == 's':
                     custom_path = input("\n¿Quieres especificar una ruta diferente para el modelo? (s/n): ").strip().lower()
                     if custom_path == 's':
-                        custom_model_path = input("\nIngresa la ruta completa del modelo: ").strip()
+                        custom_model_path = input("\nIngresa la ruta completa del modelo o carpeta: ").strip()
+                        
+                        # Check if it's a directory and find model files
+                        if os.path.isdir(custom_model_path):
+                            possible_models = [
+                                os.path.join(custom_model_path, 'model.h5'),
+                                os.path.join(custom_model_path, 'model.weights.h5'),
+                                os.path.join(custom_model_path, 'model.keras')
+                            ]
+                            
+                            found = False
+                            for model_file in possible_models:
+                                if os.path.exists(model_file):
+                                    custom_model_path = model_file
+                                    found = True
+                                    print(f"\nEncontrado archivo de modelo: {custom_model_path}")
+                                    break
+                            
+                            if not found:
+                                print(f"\n❌ No se encontraron archivos de modelo en la carpeta: {custom_model_path}")
+                                print(f"Se usará la ruta predeterminada: {model_path}")
+                                custom_model_path = model_path
+                        
+                        # Check if the model exists at the specified path
                         if os.path.exists(custom_model_path):
                             model_path = custom_model_path
                         else:
@@ -301,10 +324,24 @@ def main():
                         trainer = MusicTrainer(model=model)
                         print("✓ Modelo cargado correctamente")
                     except Exception as e:
-                        print(f"\n❌ Error al cargar el modelo: {str(e)}")
-                        print("Inicializando nuevo modelo...")
-                        trainer = MusicTrainer(input_shape=(50, 128))
-                        print("✓ Modelo inicializado correctamente")
+                        print(f"\n❌ Error al cargar el modelo completo: {str(e)}")
+                        
+                        # If that fails, try loading weights only
+                        if model_path.endswith('.weights.h5'):
+                            try:
+                                print("Intentando cargar solo los pesos del modelo...")
+                                trainer = MusicTrainer(input_shape=(50, 128))
+                                trainer.model.load_weights(model_path)
+                                print("✓ Pesos del modelo cargados correctamente")
+                            except Exception as e2:
+                                print(f"❌ Error al cargar los pesos: {str(e2)}")
+                                print("Inicializando nuevo modelo...")
+                                trainer = MusicTrainer(input_shape=(50, 128))
+                                print("✓ Modelo inicializado correctamente")
+                        else:
+                            print("Inicializando nuevo modelo...")
+                            trainer = MusicTrainer(input_shape=(50, 128))
+                            print("✓ Modelo inicializado correctamente")
             
             # Initialize trainer if it doesn't exist
             if trainer is None:
