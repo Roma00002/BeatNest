@@ -15,6 +15,8 @@ class MusicGenerator:
         """
         self.preprocessor = MusicPreprocessor()
         self.model = None
+        # Define default sequence length
+        self.sequence_length = 50
         
         if model_path and os.path.exists(model_path):
             try:
@@ -78,7 +80,7 @@ class MusicGenerator:
         
         for _ in range(length):
             # Get the last sequence_length frames
-            input_seq = current_sequence[:, -self.preprocessor.sequence_length:]
+            input_seq = current_sequence[:, -self.sequence_length:]
             input_seq = np.expand_dims(input_seq, axis=0)
             
             # Generate next frame
@@ -119,7 +121,7 @@ class MusicGenerator:
             seed = self.preprocessor.load_audio(seed_path)
         else:
             # Generate random seed
-            seed = np.random.rand(self.preprocessor.n_mels, self.preprocessor.sequence_length)
+            seed = np.random.rand(self.preprocessor.n_mels, self.sequence_length)
         
         # Generate sequence
         generated_sequence = self.generate_sequence(seed, length)
