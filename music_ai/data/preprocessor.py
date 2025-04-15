@@ -9,6 +9,7 @@ import psutil
 import h5py
 import tempfile
 import warnings
+import importlib.util
 
 class MusicPreprocessor:
     def __init__(self, n_mels: int = 128, sr: int = 22050):
@@ -24,7 +25,10 @@ class MusicPreprocessor:
         
         # Ignore warnings during preprocessing
         warnings.filterwarnings("ignore", category=UserWarning)
-        # Removed invalid warning filter for ParameterError since it's not a Warning subclass
+        
+        # Verificar si resampy está instalado
+        if importlib.util.find_spec("resampy") is None:
+            print("⚠️ El módulo 'resampy' no está instalado. Se intentará trabajar sin él.")
 
     def load_audio(self, file_path: str) -> np.ndarray:
         """
@@ -37,8 +41,13 @@ class MusicPreprocessor:
             np.ndarray: Mel spectrogram of the audio or None if error occurs
         """
         try:
-            # Load audio file with error handling
-            y, sr = librosa.load(file_path, sr=self.sr, res_type='kaiser_fast', mono=True)
+            # Intentamos cargar el audio con los parámetros óptimos primero
+            try:
+                y, sr = librosa.load(file_path, sr=self.sr, res_type='kaiser_fast', mono=True)
+            except Exception as e:
+                # Si falla, intentamos con res_type=None para evitar dependencia de resampy
+                print(f"Intentando cargar sin resampy: {file_path}")
+                y, sr = librosa.load(file_path, sr=self.sr, res_type=None, mono=True)
             
             # Check if audio is too short
             if len(y) < self.sr * 2:  # Less than 2 seconds

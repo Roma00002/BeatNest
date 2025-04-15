@@ -9,6 +9,32 @@ import gradio as gr
 import numpy as np
 from tensorflow.keras.models import load_model
 import gc
+import subprocess
+import importlib.util
+from pathlib import Path
+
+def check_dependencies():
+    """
+    Verifica y instala las dependencias necesarias para el funcionamiento del script.
+    """
+    # Lista de paquetes necesarios
+    required_packages = ["librosa", "resampy", "tensorflow", "numpy", "scipy", "matplotlib", "h5py"]
+    
+    missing_packages = []
+    for package in required_packages:
+        if importlib.util.find_spec(package) is None:
+            missing_packages.append(package)
+    
+    # Instalar paquetes faltantes
+    if missing_packages:
+        print(f"Instalando paquetes faltantes: {', '.join(missing_packages)}")
+        subprocess.check_call([sys.executable, "-m", "pip", "install", "--upgrade"] + missing_packages)
+        print("Instalación completada.")
+    else:
+        print("Todas las dependencias están instaladas.")
+
+# Verificar dependencias al inicio
+check_dependencies()
 
 def print_genre_structure(structure: dict, level: int = 0):
     """Print the genre structure in a tree-like format."""
