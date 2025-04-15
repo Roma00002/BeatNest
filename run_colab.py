@@ -331,6 +331,9 @@ def main():
                             trainer = MusicTrainer(model=model)
                             print("✓ Modelo cargado correctamente")
                             loading_success = True
+                            
+                            # Store the original model path to save back to the same location
+                            original_model_path = model_path
                         except Exception as e:
                             print(f"\n❌ Error al cargar el modelo completo: {str(e)}")
                             
@@ -342,6 +345,9 @@ def main():
                                     trainer.model.load_weights(model_path)
                                     print("✓ Pesos del modelo cargados correctamente")
                                     loading_success = True
+                                    
+                                    # Store the original model path to save back to the same location
+                                    original_model_path = model_path
                                     continue
                                 except Exception as e2:
                                     print(f"❌ Error al cargar los pesos: {str(e2)}")
@@ -419,6 +425,18 @@ def main():
                         validation_split=0.2,
                         checkpoint_dir=models_dir
                     )
+                    
+                    # If we loaded an existing model, save back to the original location
+                    if 'original_model_path' in locals() and original_model_path:
+                        print(f"\n=== Guardando modelo actualizado en la ubicación original ===")
+                        if original_model_path.endswith('.h5'):
+                            trainer.model.save(original_model_path)
+                            print(f"✓ Modelo guardado en: {original_model_path}")
+                        
+                        # Also save weights if it was a weights file
+                        if original_model_path.endswith('.weights.h5'):
+                            trainer.model.save_weights(original_model_path)
+                            print(f"✓ Pesos guardados en: {original_model_path}")
                     
                     # Display training metrics
                     print("\n=== Métricas de entrenamiento ===")
