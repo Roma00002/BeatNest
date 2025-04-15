@@ -101,16 +101,12 @@ class MusicTrainer:
         checkpoint_dir: str = None
     ) -> dict:
         """Train the model on the given data."""
+        callbacks = []
+        
         if checkpoint_dir:
             os.makedirs(checkpoint_dir, exist_ok=True)
             checkpoint_path = os.path.join(checkpoint_dir, 'model.weights.h5')
             model_path = os.path.join(checkpoint_dir, 'model.h5')
-            
-            # Save complete model
-            self.model.save(model_path)
-            
-            # Save weights
-            self.model.save_weights(checkpoint_path)
             
             # Create checkpoint callback with improved performance monitoring
             checkpoint = ModelCheckpoint(
@@ -140,8 +136,6 @@ class MusicTrainer:
             )
             
             callbacks = [checkpoint, early_stopping, reduce_lr]
-        else:
-            callbacks = []
         
         # Train the model
         history = self.model.fit(

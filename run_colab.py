@@ -418,12 +418,16 @@ def main():
                     
                     # Train the model with a few more epochs per batch to improve learning
                     print("\n=== Entrenando modelo ===")
+                    
+                    # Use original path for checkpoints if we loaded an existing model
+                    checkpoint_dir = os.path.dirname(original_model_path) if 'original_model_path' in locals() and original_model_path else models_dir
+                    
                     history = trainer.train(
                         X, y,
                         epochs=3,  # Train for 3 epochs per batch instead of 1
                         batch_size=32,  # Increased batch size for better gradient estimation
                         validation_split=0.2,
-                        checkpoint_dir=models_dir
+                        checkpoint_dir=checkpoint_dir
                     )
                     
                     # If we loaded an existing model, save back to the original location
