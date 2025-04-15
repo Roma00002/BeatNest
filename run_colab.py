@@ -461,14 +461,43 @@ def main():
             if 'original_model_path' in locals() and original_model_path:
                 # Save to the original location
                 final_model_path = original_model_path
+                print(f"\n✓ DEBUG: Actualizando modelo existente en: {original_model_path}")
             else:
                 # Save to the models directory
                 final_model_path = os.path.join(models_dir, 'model.h5')
-                
+                print(f"\n✓ DEBUG: Creando nuevo modelo en: {final_model_path}")
+            
             # Always save both the complete model and weights
             print("\n=== Guardando modelo final ===")
-            trainer.model.save(final_model_path)
-            trainer.model.save_weights(final_model_path.replace('.h5', '.weights.h5'))
+            
+            # Save model.h5
+            if final_model_path.endswith('.h5'):
+                trainer.model.save(final_model_path)
+                print(f"✓ Modelo (.h5) guardado en: {final_model_path}")
+                
+                # Also save weights version
+                weights_path = final_model_path.replace('.h5', '.weights.h5')
+                trainer.model.save_weights(weights_path)
+                print(f"✓ Pesos (.weights.h5) guardados en: {weights_path}")
+            elif final_model_path.endswith('.weights.h5'):
+                # Save weights
+                trainer.model.save_weights(final_model_path)
+                print(f"✓ Pesos (.weights.h5) guardados en: {final_model_path}")
+                
+                # Also save complete model
+                model_path = final_model_path.replace('.weights.h5', '.h5')
+                trainer.model.save(model_path)
+                print(f"✓ Modelo (.h5) guardado en: {model_path}")
+            else:
+                # Unknown extension, save both formats
+                base_path = os.path.splitext(final_model_path)[0]
+                model_path = base_path + '.h5'
+                weights_path = base_path + '.weights.h5'
+                
+                trainer.model.save(model_path)
+                trainer.model.save_weights(weights_path)
+                print(f"✓ Modelo guardado en: {model_path}")
+                print(f"✓ Pesos guardados en: {weights_path}")
             
             print("\n=== Entrenamiento completado exitosamente! ===")
             print(f"El modelo final se guardó en: {final_model_dir}")
