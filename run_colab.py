@@ -276,57 +276,50 @@ def main():
             trainer = None
             model_path = os.path.join(models_dir, 'model.h5')
             
+            # Ask if user wants to load an existing model
+            load_existing = input("\n¿Deseas cargar un modelo existente? (s/n): ").strip().lower()
+            
             # Check if we should load an existing model
             if args.model_path:
-                if os.path.exists(args.model_path):
-                    print(f"\n=== Cargando modelo existente desde: {args.model_path} ===")
-                    try:
-                        # Try loading complete model first
-                        model = load_model(args.model_path)
-                    except ValueError:
-                        # If that fails, try loading weights
-                        model = MusicTrainer(input_shape=(50, 128)).model
-                        model.load_weights(args.model_path)
-                    trainer = MusicTrainer(model=model)
-                    print("✓ Modelo cargado correctamente")
-                else:
-                    print(f"\n❌ No se encontró el modelo en: {args.model_path}")
-                    return
-            elif os.path.exists(model_path):
-                load_existing = input("\n¿Deseas cargar el modelo existente? (s/n): ").strip().lower()
-                if load_existing == 's':
-                    custom_path = input("\n¿Quieres especificar una ruta diferente para el modelo? (s/n): ").strip().lower()
-                    if custom_path == 's':
-                        custom_model_path = input("\nIngresa la ruta completa del modelo o carpeta: ").strip()
-                        
-                        # Check if it's a directory and find model files
-                        if os.path.isdir(custom_model_path):
-                            possible_models = [
-                                os.path.join(custom_model_path, 'model.h5'),
-                                os.path.join(custom_model_path, 'model.weights.h5'),
-                                os.path.join(custom_model_path, 'model.keras')
-                            ]
-                            
-                            found = False
-                            for model_file in possible_models:
-                                if os.path.exists(model_file):
-                                    custom_model_path = model_file
-                                    found = True
-                                    print(f"\nEncontrado archivo de modelo: {custom_model_path}")
-                                    break
-                            
-                            if not found:
-                                print(f"\n❌ No se encontraron archivos de modelo en la carpeta: {custom_model_path}")
-                                print(f"Se usará la ruta predeterminada: {model_path}")
-                                custom_model_path = model_path
-                        
-                        # Check if the model exists at the specified path
-                        if os.path.exists(custom_model_path):
-                            model_path = custom_model_path
-                        else:
-                            print(f"\n❌ No se encontró el modelo en: {custom_model_path}")
-                            print(f"Se usará la ruta predeterminada: {model_path}")
+                model_path = args.model_path
+                load_existing = 's'
+                print(f"\nUtilizando ruta de modelo especificada: {model_path}")
+            
+            if load_existing == 's':
+                custom_path = input("\n¿Quieres especificar una ruta diferente para el modelo? (s/n): ").strip().lower()
+                if custom_path == 's':
+                    custom_model_path = input("\nIngresa la ruta completa del modelo o carpeta: ").strip()
                     
+                    # Check if it's a directory and find model files
+                    if os.path.isdir(custom_model_path):
+                        possible_models = [
+                            os.path.join(custom_model_path, 'model.h5'),
+                            os.path.join(custom_model_path, 'model.weights.h5'),
+                            os.path.join(custom_model_path, 'model.keras')
+                        ]
+                        
+                        found = False
+                        for model_file in possible_models:
+                            if os.path.exists(model_file):
+                                custom_model_path = model_file
+                                found = True
+                                print(f"\nEncontrado archivo de modelo: {custom_model_path}")
+                                break
+                        
+                        if not found:
+                            print(f"\n❌ No se encontraron archivos de modelo en la carpeta: {custom_model_path}")
+                            print(f"Se usará la ruta predeterminada: {model_path}")
+                            custom_model_path = model_path
+                    
+                    # Check if the model exists at the specified path
+                    if os.path.exists(custom_model_path):
+                        model_path = custom_model_path
+                    else:
+                        print(f"\n❌ No se encontró el modelo en: {custom_model_path}")
+                        print(f"Se usará la ruta predeterminada: {model_path}")
+                
+                # Check if model exists at selected path
+                if os.path.exists(model_path):
                     print(f"\n=== Cargando modelo existente desde: {model_path} ===")
                     
                     # Try loading the model in a loop to allow retries
@@ -370,6 +363,10 @@ def main():
                                 trainer = MusicTrainer(input_shape=(50, 128))
                                 print("✓ Modelo inicializado correctamente")
                                 loading_success = True
+                else:
+                    print(f"\n❌ No se encontró el modelo en: {model_path}")
+                    print("Inicializando nuevo modelo...")
+                    trainer = None
             
             # Initialize trainer if it doesn't exist
             if trainer is None:
