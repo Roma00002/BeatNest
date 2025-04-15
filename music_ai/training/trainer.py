@@ -72,19 +72,19 @@ class MusicTrainer:
             # Input layer
             Input(shape=self.input_shape),
             
-            # First LSTM layer
-            LSTM(32, return_sequences=True, dropout=0.2),
+            # First LSTM layer with increased units
+            LSTM(64, return_sequences=True, dropout=0.2, recurrent_dropout=0.1),
             
-            # Second LSTM layer
-            LSTM(32, return_sequences=True, dropout=0.2),
+            # Second LSTM layer with increased units
+            LSTM(64, return_sequences=True, dropout=0.2, recurrent_dropout=0.1),
             
             # Output layer - use input_shape[1] for the output dimension to match the target shape
             TimeDistributed(Dense(self.input_shape[1], activation='softmax'))
         ])
         
-        # Compile model
+        # Compile model with adjusted learning rate
         model.compile(
-            optimizer=Adam(learning_rate=self.learning_rate),
+            optimizer=Adam(learning_rate=0.002),  # Slightly increased learning rate
             loss='categorical_crossentropy',
             metrics=['accuracy']
         )
@@ -112,7 +112,7 @@ class MusicTrainer:
             # Save weights
             self.model.save_weights(checkpoint_path)
             
-            # Create checkpoint callback
+            # Create checkpoint callback with improved performance monitoring
             checkpoint = ModelCheckpoint(
                 checkpoint_path,
                 monitor='val_loss',
@@ -122,15 +122,24 @@ class MusicTrainer:
                 verbose=1
             )
             
-            # Create early stopping callback
+            # Create early stopping callback with adjusted patience
             early_stopping = EarlyStopping(
                 monitor='val_loss',
-                patience=5,
+                patience=3,  # Reduced patience for faster response to plateaus
                 restore_best_weights=True,
                 verbose=1
             )
             
-            callbacks = [checkpoint, early_stopping]
+            # Add learning rate reduction on plateau
+            reduce_lr = tf.keras.callbacks.ReduceLROnPlateau(
+                monitor='val_loss',
+                factor=0.5,  # Reduce learning rate by half
+                patience=2,   # Wait 2 epochs before reducing
+                min_lr=0.00001,
+                verbose=1
+            )
+            
+            callbacks = [checkpoint, early_stopping, reduce_lr]
         else:
             callbacks = []
         

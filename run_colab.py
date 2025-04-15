@@ -375,7 +375,13 @@ def main():
             if trainer is None:
                 print("\n=== Inicializando nuevo modelo ===")
                 # Use (50, 128) for input shape to match the processed data
-                trainer = MusicTrainer(input_shape=(50, 128))
+                trainer = MusicTrainer(
+                    input_shape=(50, 128),
+                    units=64,  # Increased units for better learning
+                    num_layers=2,
+                    dropout_rate=0.2,
+                    learning_rate=0.002  # Slightly higher learning rate
+                )
                 print("✓ Modelo inicializado correctamente")
             
             # Process and train in batches
@@ -400,19 +406,19 @@ def main():
                     print(f"✓ Forma de los datos objetivo: {y.shape}")
                     
                     # Limit the number of sequences to avoid excessive training time
-                    max_sequences = 1000  # Limit to 1000 sequences per batch
+                    max_sequences = 1500  # Increased from 1000 to get more training examples
                     if X.shape[0] > max_sequences:
                         print(f"\n⚠️ Limitando número de secuencias de {X.shape[0]} a {max_sequences} para reducir tiempo de entrenamiento")
                         indices = np.random.choice(X.shape[0], max_sequences, replace=False)
                         X = X[indices]
                         y = y[indices]
                     
-                    # Train the model for one epoch on this batch
+                    # Train the model with a few more epochs per batch to improve learning
                     print("\n=== Entrenando modelo ===")
                     history = trainer.train(
                         X, y,
-                        epochs=1,  # Train for just one epoch per batch
-                        batch_size=16,
+                        epochs=3,  # Train for 3 epochs per batch instead of 1
+                        batch_size=32,  # Increased batch size for better gradient estimation
                         validation_split=0.2,
                         checkpoint_dir=models_dir
                     )

@@ -221,6 +221,19 @@ class MusicPreprocessor:
                 if mel_spec is None:
                     continue
                 
+                # Apply data augmentation - slight random pitch shift
+                if np.random.random() > 0.5:
+                    # Pitch shift by randomly shifting rows up/down by 1-3 steps
+                    shift = np.random.randint(-2, 3)
+                    if shift != 0:
+                        if shift > 0:
+                            mel_spec = np.vstack([mel_spec[shift:], np.zeros((shift, mel_spec.shape[1]))])
+                        else:
+                            mel_spec = np.vstack([np.zeros((-shift, mel_spec.shape[1])), mel_spec[:shift]])
+                
+                # Normalize the mel spectrogram to reduce variance
+                mel_spec = (mel_spec - np.mean(mel_spec)) / (np.std(mel_spec) + 1e-8)
+                
                 # Create sequences with length 50 to match model input shape
                 sequences, targets = self.create_sequences(mel_spec, sequence_length=50)
                 
@@ -249,5 +262,9 @@ class MusicPreprocessor:
         # Ensure final shape is correct
         X = X.reshape(-1, 50, self.n_mels)
         y = y.reshape(-1, 50, self.n_mels)
+        
+        # Apply input normalization for better training
+        X = X / np.max(np.abs(X)) if np.max(np.abs(X)) > 0 else X
+        y = y / np.max(np.abs(y)) if np.max(np.abs(y)) > 0 else y
         
         return X, y 
