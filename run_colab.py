@@ -380,10 +380,10 @@ def main():
                 # Use (50, 128) for input shape to match the processed data
                 trainer = MusicTrainer(
                     input_shape=(50, 128),
-                    units=64,  # Increased units for better learning
-                    num_layers=2,
-                    dropout_rate=0.2,
-                    learning_rate=0.002  # Slightly higher learning rate
+                    units=128,  # Increased from 64 to 128 for better learning capacity
+                    num_layers=3,  # Increased from 2 to 3 for more depth
+                    dropout_rate=0.3,  # Slight increase in dropout for better regularization
+                    learning_rate=0.001  # Adjusted to standard learning rate
                 )
                 print("✓ Modelo inicializado correctamente")
             
@@ -409,7 +409,7 @@ def main():
                     print(f"✓ Forma de los datos objetivo: {y.shape}")
                     
                     # Limit the number of sequences to avoid excessive training time
-                    max_sequences = 1500  # Increased from 1000 to get more training examples
+                    max_sequences = 2500  # Increased from 1500 to 2500 for more training data
                     if X.shape[0] > max_sequences:
                         print(f"\n⚠️ Limitando número de secuencias de {X.shape[0]} a {max_sequences} para reducir tiempo de entrenamiento")
                         indices = np.random.choice(X.shape[0], max_sequences, replace=False)
@@ -424,8 +424,8 @@ def main():
                     
                     history = trainer.train(
                         X, y,
-                        epochs=3,  # Train for 3 epochs per batch instead of 1
-                        batch_size=32,  # Increased batch size for better gradient estimation
+                        epochs=5,  # Increased from 3 to 5 epochs per batch
+                        batch_size=64,  # Increased from 32 to 64 for better gradient estimation
                         validation_split=0.2,
                         checkpoint_dir=checkpoint_dir
                     )

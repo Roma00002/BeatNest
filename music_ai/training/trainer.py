@@ -73,10 +73,22 @@ class MusicTrainer:
             Input(shape=self.input_shape),
             
             # First LSTM layer with increased units
-            LSTM(64, return_sequences=True, dropout=0.2, recurrent_dropout=0.1),
+            LSTM(self.units, return_sequences=True, dropout=self.dropout_rate, recurrent_dropout=self.dropout_rate/2),
+            
+            # BatchNormalization can help with faster and more stable learning
+            tf.keras.layers.BatchNormalization(),
             
             # Second LSTM layer with increased units
-            LSTM(64, return_sequences=True, dropout=0.2, recurrent_dropout=0.1),
+            LSTM(self.units, return_sequences=True, dropout=self.dropout_rate, recurrent_dropout=self.dropout_rate/2),
+            
+            # Another BatchNormalization layer
+            tf.keras.layers.BatchNormalization(),
+            
+            # Third LSTM layer (if num_layers >= 3)
+            LSTM(self.units, return_sequences=True, dropout=self.dropout_rate, recurrent_dropout=self.dropout_rate/2) if self.num_layers >= 3 else tf.keras.layers.Lambda(lambda x: x),
+            
+            # Final BatchNormalization
+            tf.keras.layers.BatchNormalization(),
             
             # Output layer - use input_shape[1] for the output dimension to match the target shape
             TimeDistributed(Dense(self.input_shape[1], activation='softmax'))
@@ -84,7 +96,7 @@ class MusicTrainer:
         
         # Compile model with adjusted learning rate
         model.compile(
-            optimizer=Adam(learning_rate=0.002),  # Slightly increased learning rate
+            optimizer=Adam(learning_rate=self.learning_rate),
             loss='categorical_crossentropy',
             metrics=['accuracy']
         )
@@ -121,7 +133,7 @@ class MusicTrainer:
             # Create early stopping callback with adjusted patience
             early_stopping = EarlyStopping(
                 monitor='val_loss',
-                patience=3,  # Reduced patience for faster response to plateaus
+                patience=5,  # Increased patience for a better chance at finding global minima
                 restore_best_weights=True,
                 verbose=1
             )
@@ -130,12 +142,35 @@ class MusicTrainer:
             reduce_lr = tf.keras.callbacks.ReduceLROnPlateau(
                 monitor='val_loss',
                 factor=0.5,  # Reduce learning rate by half
-                patience=2,   # Wait 2 epochs before reducing
+                patience=3,   # Wait 3 epochs before reducing
                 min_lr=0.00001,
                 verbose=1
             )
             
-            callbacks = [checkpoint, early_stopping, reduce_lr]
+            # Add a TensorBoard callback
+            tensor_board = tf.keras.callbacks.TensorBoard(
+                log_dir=os.path.join(checkpoint_dir, 'logs'),
+                histogram_freq=1,
+                write_graph=True
+            )
+            
+            callbacks = [checkpoint, early_stopping, reduce_lr, tensor_board]
+        
+        # Reshape inputs if necessary to avoid dimension mismatch
+        if len(X.shape) == 3 and X.shape[1] == self.input_shape[0] and X.shape[2] == self.input_shape[1]:
+            print("✓ Dimensiones de entrada correctas")
+        else:
+            print(f"⚠️ Ajustando dimensiones: {X.shape} a forma esperada: (n_samples, {self.input_shape[0]}, {self.input_shape[1]})")
+            try:
+                X = X.reshape(-1, self.input_shape[0], self.input_shape[1])
+                y = y.reshape(-1, self.input_shape[0], self.input_shape[1])
+            except ValueError as e:
+                print(f"❌ Error al ajustar dimensiones: {e}")
+        
+        # Apply class weights for better balance if needed
+        class_weights = None
+        if validation_split > 0:
+            print("✓ Usando validación durante el entrenamiento")
         
         # Train the model
         history = self.model.fit(
@@ -144,10 +179,13 @@ class MusicTrainer:
             batch_size=batch_size,
             validation_split=validation_split,
             callbacks=callbacks,
-            verbose=1
+            verbose=1,
+            class_weight=class_weights
         )
         
         return {
             'train_loss': history.history['loss'],
-            'val_loss': history.history['val_loss']
+            'val_loss': history.history['val_loss'],
+            'train_accuracy': history.history.get('accuracy', []),
+            'val_accuracy': history.history.get('val_accuracy', [])
         } 

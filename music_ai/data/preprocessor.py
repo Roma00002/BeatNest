@@ -221,18 +221,48 @@ class MusicPreprocessor:
                 if mel_spec is None:
                     continue
                 
-                # Apply data augmentation - slight random pitch shift
-                if np.random.random() > 0.5:
-                    # Pitch shift by randomly shifting rows up/down by 1-3 steps
-                    shift = np.random.randint(-2, 3)
+                # Apply data augmentation with more variations
+                # 1. Random pitch shift (70% chance)
+                if np.random.random() > 0.3:
+                    # Pitch shift by randomly shifting rows up/down
+                    shift = np.random.randint(-3, 4)  # Increased range
                     if shift != 0:
                         if shift > 0:
                             mel_spec = np.vstack([mel_spec[shift:], np.zeros((shift, mel_spec.shape[1]))])
                         else:
                             mel_spec = np.vstack([np.zeros((-shift, mel_spec.shape[1])), mel_spec[:shift]])
                 
-                # Normalize the mel spectrogram to reduce variance
-                mel_spec = (mel_spec - np.mean(mel_spec)) / (np.std(mel_spec) + 1e-8)
+                # 2. Time stretching (50% chance)
+                if np.random.random() > 0.5:
+                    stretch_factor = np.random.uniform(0.9, 1.1)  # 10% stretch/shrink
+                    orig_len = mel_spec.shape[1]
+                    new_len = int(orig_len * stretch_factor)
+                    if new_len > orig_len:
+                        # Stretch (interpolate)
+                        indices = np.linspace(0, orig_len-1, new_len)
+                        stretched = np.zeros((mel_spec.shape[0], new_len))
+                        for i in range(mel_spec.shape[0]):
+                            stretched[i] = np.interp(indices, np.arange(orig_len), mel_spec[i])
+                        mel_spec = stretched[:, :orig_len]  # Keep original length
+                    elif new_len < orig_len:
+                        # Shrink (downsample)
+                        indices = np.linspace(0, new_len-1, orig_len)
+                        shrunk = np.zeros((mel_spec.shape[0], orig_len))
+                        for i in range(mel_spec.shape[0]):
+                            shrunk[i] = np.interp(np.arange(orig_len), indices, mel_spec[i, :new_len])
+                        mel_spec = shrunk
+                
+                # 3. Add small random noise (30% chance)
+                if np.random.random() > 0.7:
+                    noise_level = np.random.uniform(0.01, 0.05)  # 1-5% noise
+                    noise = np.random.normal(0, noise_level, mel_spec.shape)
+                    mel_spec = mel_spec + noise
+                
+                # Normalize the mel spectrogram with improved normalization
+                # Z-score normalization per frequency band
+                mel_mean = np.mean(mel_spec, axis=1, keepdims=True)
+                mel_std = np.std(mel_spec, axis=1, keepdims=True) + 1e-8
+                mel_spec = (mel_spec - mel_mean) / mel_std
                 
                 # Create sequences with length 50 to match model input shape
                 sequences, targets = self.create_sequences(mel_spec, sequence_length=50)
@@ -241,8 +271,16 @@ class MusicPreprocessor:
                 sequences = sequences.reshape(-1, 50, self.n_mels)
                 targets = targets.reshape(-1, 50, self.n_mels)
                 
-                all_sequences.extend(sequences)
-                all_targets.extend(targets)
+                # Filter out zero-padding sequences with minimal information
+                seq_entropy = np.sum(np.abs(sequences), axis=(1, 2))
+                valid_indices = seq_entropy > np.percentile(seq_entropy, 5)  # Remove bottom 5% low-information sequences
+                
+                if np.sum(valid_indices) > 0:
+                    sequences = sequences[valid_indices]
+                    targets = targets[valid_indices]
+                    
+                    all_sequences.extend(sequences)
+                    all_targets.extend(targets)
                 
                 # Clear memory
                 del mel_spec, sequences, targets
@@ -263,8 +301,12 @@ class MusicPreprocessor:
         X = X.reshape(-1, 50, self.n_mels)
         y = y.reshape(-1, 50, self.n_mels)
         
-        # Apply input normalization for better training
-        X = X / np.max(np.abs(X)) if np.max(np.abs(X)) > 0 else X
-        y = y / np.max(np.abs(y)) if np.max(np.abs(y)) > 0 else y
+        # Shuffle the data for better training
+        indices = np.arange(X.shape[0])
+        np.random.shuffle(indices)
+        X = X[indices]
+        y = y[indices]
+        
+        print(f"✓ Generados {X.shape[0]} ejemplos de entrenamiento de {len(audio_files)} archivos de audio")
         
         return X, y 
