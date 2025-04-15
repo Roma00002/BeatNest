@@ -24,7 +24,7 @@ class MusicPreprocessor:
         
         # Ignore warnings during preprocessing
         warnings.filterwarnings("ignore", category=UserWarning)
-        warnings.filterwarnings("ignore", category=librosa.util.exceptions.ParameterError)
+        # Removed invalid warning filter for ParameterError since it's not a Warning subclass
 
     def load_audio(self, file_path: str) -> np.ndarray:
         """
