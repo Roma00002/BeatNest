@@ -454,8 +454,24 @@ def main():
                 else:
                     print("❌ No se pudieron procesar las canciones en este lote")
             
+            # Use the original model path in the final message if we loaded an existing model
+            final_model_dir = os.path.dirname(original_model_path) if 'original_model_path' in locals() and original_model_path else models_dir
+            
+            # Save the final model
+            if 'original_model_path' in locals() and original_model_path:
+                # Save to the original location
+                final_model_path = original_model_path
+            else:
+                # Save to the models directory
+                final_model_path = os.path.join(models_dir, 'model.h5')
+                
+            # Always save both the complete model and weights
+            print("\n=== Guardando modelo final ===")
+            trainer.model.save(final_model_path)
+            trainer.model.save_weights(final_model_path.replace('.h5', '.weights.h5'))
+            
             print("\n=== Entrenamiento completado exitosamente! ===")
-            print(f"El modelo final se guardó en: {models_dir}")
+            print(f"El modelo final se guardó en: {final_model_dir}")
         
         else:  # generate mode
             # Create and launch Gradio interface
